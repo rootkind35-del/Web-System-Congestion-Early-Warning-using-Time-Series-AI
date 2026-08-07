@@ -36,7 +36,7 @@ To address spatial-temporal dependencies, researchers have increasingly hybridiz
 We formulate the proactive congestion warning task as a multi-horizon multivariate time-series forecasting problem. 
 
 ### A. Observations and Features
-<p>Let the system telemetry be sampled at a fixed interval of $\Delta t = 1$ minute. The historical observation window is defined as a fixed sequence of $W = 30$ timesteps (equivalent to a 30-minute look-back window). At each timestep $t$, the system observes a feature vector $\mathbf{f}_t \in \mathbb{R}^F$, where $F = 4$. The input features are defined as:</p>
+<p>The system telemetry is sampled at a fixed interval of $\Delta t = 1$ minute. Therefore, a 30-minute historical look-back window corresponds to exactly $W = 30 / \Delta t = 30$ timesteps. At each timestep $t$, the system observes a feature vector $\mathbf{f}_t \in \mathbb{R}^F$, where $F = 4$. The input features are defined as:</p>
 
 *   $f_{t, 1}$: CPU Utilization (%)
 *   $f_{t, 2}$: RAM Utilization (%)
@@ -83,7 +83,7 @@ The system architecture consists of four sequential components: Causal Telemetry
 ```
 
 ### A. Data Preprocessing and Causal Filtering
-<p>Prior to sequence ingestion, the telemetry undergoes noise smoothing to remove operating system jitter. A standard Savitzky-Golay (SG) filter utilizes a centered window:</p>
+<p>To explicitly prevent any future-information leakage during preprocessing, the dataset is first strictly partitioned chronologically into Train, Validation, and Test splits before any transformation. Following the temporal split, the telemetry undergoes noise smoothing to remove operating system jitter. A standard Savitzky-Golay (SG) filter utilizes a centered window:</p>
 
 $$
 \tilde{x}_t = \sum_{i=-m}^{m} C_i x_{t+i}
@@ -235,18 +235,18 @@ Table I summarizes the empirical results (mean ± standard deviation) across the
 ---
 
 ### C. Alerting Threshold Ablation Study
-We evaluate the alerting performance of different threshold configurations against ground-truth congestion events (actual CPU load > 80% and latency > 100 ms).
+We evaluate the alerting performance of different threshold configurations against ground-truth congestion events (actual CPU load > 80% and latency > 100 ms). The alert lead time is intrinsically defined by the forecast horizon $h_i$ (e.g., 5, 10, or 15 minutes prior to the congestion event).
 
-Table II summarizes the operational alert metrics.
+Table II summarizes the operational alert metrics across the prediction horizons.
 
-| Alert Configuration | Precision | Recall | $F_1$-score | FPR | FNR | False Alarms |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Static Threshold (>80%)** | 0.6889 | 0.9884 | 0.8119 | 0.0035 | 0.0116 | 810 |
-| **EMA Only** | 0.0125 | 0.8171 | 0.0245 | 0.5011 | 0.1829 | 117,602 |
-| **EMA + 1.5 $\sigma$** | 0.0228 | 0.1339 | 0.0389 | 0.0444 | 0.8661 | 10,426 |
-| **Proposed Alert (Latency > 100 ms)** | **0.9177** | 0.8171 | **0.8645** | **0.0006** | 0.1829 | **133** |
+| Alert Configuration | Precision | Recall | $F_1$-score | FPR | FNR | False Alarms | Lead Time |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Static Threshold (>80%)** | 0.6889 | 0.9884 | 0.8119 | 0.0035 | 0.0116 | 810 | - |
+| **EMA Only** | 0.0125 | 0.8171 | 0.0245 | 0.5011 | 0.1829 | 117,602 | $h_i$ mins |
+| **EMA + 1.5 $\sigma$** | 0.0228 | 0.1339 | 0.0389 | 0.0444 | 0.8661 | 10,426 | $h_i$ mins |
+| **Proposed Alert (Latency > 100 ms)** | **0.9177** | 0.8171 | **0.8645** | **0.0006** | 0.1829 | **133** | $h_i$ mins |
 
-*Analysis*: Integrating real-time latency verification with the predicted CPU load (Proposed Alert) reduces false alarms from 810 to 133 (an 83.5% reduction) and achieves the highest $F_1$-score of 86.45%, demonstrating high noise resistance.
+*Analysis*: Integrating real-time latency verification with the predicted CPU load (Proposed Alert) reduces false alarms from 810 to 133 (an 83.5% reduction) and achieves the highest $F_1$-score of 86.45%, demonstrating high noise resistance and providing sufficient lead time for orchestration decisions.
 
 ---
 
@@ -280,7 +280,7 @@ Benchmarks were executed on an NVIDIA GeForce RTX 4060 Laptop GPU, PyTorch 2.11.
 
 ## VI. CONCLUSION AND FUTURE WORK
 
-This paper presents a proactive, end-to-end Early Warning System for web congestion. By resolving temporal data leakage in Savitzky-Golay preprocessing through a causal FIR formulation, and training an optimized BiLSTM-Attention architecture, the system achieves a mean absolute error of 2.34% CPU load with an inference latency of 1.86 ms. The integration of dynamic thresholding and latency SLO warning constraints reduces false alarms by 83.5% and achieves an $F_1$-score of 86.45%. The system's memory allocation of 9.65 MB makes it highly viable for edge tier deployment. Future work will investigate the deployment of Federated Learning across distributed datacenters to compile joint warnings without aggregating raw telemetry.
+This paper presents a proactive, end-to-end Early Warning System for web congestion. By resolving temporal data leakage in Savitzky-Golay preprocessing through a causal FIR formulation, and training an optimized BiLSTM-Attention architecture, the system achieves a mean absolute error of 2.34% CPU load with an inference latency of 1.86 ms. The integration of dynamic thresholding and latency SLO warning constraints reduces false alarms by 83.5% and achieves an $F_1$-score of 86.45%. The system serves as a lightweight prototype for real-time congestion early warning, and its memory allocation of 9.65 MB makes it highly viable for edge tier deployment. Future work will investigate the deployment of Deep Reinforcement Learning (DRL) and Federated Learning to transition the system from an early warning prototype into an autonomous scaling actor.
 
 ---
 
@@ -296,5 +296,5 @@ This paper presents a proactive, end-to-end Early Warning System for web congest
 [8] J. Bi, W. Zhang, and L. Wang, "Web Traffic Prediction Utilizing Temporal Convolutional Networks and LSTM," *Proc. IEEE International Conference on Cloud Computing (CLOUD)*, 2020, pp. 45-52.
 [9] K. Star, M. Lee, and J. Park, "Autoscaling in Kubernetes using Deep Reinforcement Learning," *IEEE Systems Journal*, vol. 15, no. 4, pp. 4900-4911, 2021.
 [10] T. Nguyen, V. Le, and D. Pham, "DeepScaler: Spatiotemporal GNN for Proactive Cloud Scaling," *Proc. IEEE International Conference on Distributed Computing Systems (ICDCS)*, 2022, pp. 300-310.
-[11] J. Park, L. Graf, M. Muller, and K. Schmidt, "GRAF: A Graph Neural Network Based Proactive Resource Allocation Framework for SLO-Oriented Microservices," *Proc. ACM CoNEXT*, 2021, pp. 1020-1035.
+[11] J. Park, B. Choi, C. Lee, and D. Han, "GRAF: A Graph Neural Network-based Proactive Resource Allocation Framework for SLO-Oriented Microservices," *IEEE/ACM Transactions on Networking*, 2023.
 [12] S. Wang, H. Liu, and Y. Zhang, "Graph-PHPA: Combining LSTM and GNN for Robust Load Prediction," *IEEE Access*, vol. 10, pp. 55600-55615, 2022.
