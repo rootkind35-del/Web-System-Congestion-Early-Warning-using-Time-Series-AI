@@ -49,7 +49,7 @@ $$
 $$
 
 ### B. Target and Objective Function
-<p>The target variables represent the future CPU utilization percentage at discrete forecast horizons $H = \{h_1, h_2, h_3\} = \{5, 10, 15\}$ minutes. The ground-truth target vector at time $t$ is defined as:</p>
+<p>The target variables represent the future CPU utilization percentage at discrete forecast horizons $H = \{h_1, h_2, h_3\} = \{5, 10, 15\}$ minutes, which strictly correspond to $5, 10,$ and $15$ future timesteps since $\Delta t = 1$ minute. The ground-truth target vector at time $t$ is defined as:</p>
 
 $$
 \mathbf{Y}_t = [y_{t+5}, y_{t+10}, y_{t+15}]^T \in \mathbb{R}^3
@@ -195,22 +195,24 @@ where $\lambda = 30$. Upon detection, a retraining loop is triggered using the m
 ## V. EXPERIMENTS AND EVALUATION
 
 ### A. Dataset Setup
-We construct a 3-year telemetry dataset containing 1,576,800 data points. The dataset is aligned from NASA HTTP logs (scaled to represent transactional request rates), Wikipedia page traffic, and e-commerce infrastructure telemetry. 
+We construct a 3-year telemetry dataset containing 1,576,800 data points (sampled at $\Delta t = 1$ minute). The NASA HTTP logs and Wikipedia traffic provide realistic diurnal workload patterns, which are aligned and scaled to simulate modern request rates. The corresponding e-commerce CPU and RAM utilizations are synthetically generated to logically correlate with these request rates. Missing values are imputed using forward-filling, and all features are normalized via Min-Max scaling fitted strictly on the training partition.
 
-<p>The dataset split is strictly chronological to prevent temporal leakage: 70% Train (1,103,716 samples), 15% Validation (236,506 samples), and 15% Test (236,506 samples). Synthetic traffic spikes representing Shopee 11.11 Mega Sale events were modeled using Gaussian distributions:</p>
+<p>The dataset split is strictly chronological to prevent temporal leakage: 70% Train (1,103,716 samples), 15% Validation (236,506 samples), and 15% Test (236,506 samples). To stress-test the model's ability to predict out-of-distribution traffic surges, synthetic spikes representing Shopee 11.11 Mega Sale events were modeled using Gaussian distributions:</p>
 
 $$
 S(t) = A \cdot \exp\left(-\frac{(t - t_{\text{peak}})^2}{2 w^2}\right)
 $$
 
-<p>where $A \in [60\%, 90\%]$, $w \in [15, 60]$ minutes, and were injected prior to splitting to evaluate forecasting robustness under high stress.</p>
+<p>where $A \in [60\%, 90\%]$ is the spike magnitude and $w \in [15, 60]$ minutes controls the duration/rising rate. Using a fixed random seed, we injected exactly 10 such extreme events exclusively into the Test set, ensuring they remain completely unseen during training.</p>
 
 ---
 
 ### B. Forecasting Accuracy Benchmarks
-We train all models across 5 independent runs with different random seeds. The models are trained on an NVIDIA RTX 4060 GPU using Adam optimizer, `batch_size = 1024`, `lr = 0.001`, and early stopping with a patience of 5 epochs. We evaluate Naive (Persistence), Moving Average (MA), Standard LSTM, SG-TCN-LSTM, and the proposed BiLSTM-Attention models.
+We train all models across 5 independent runs with different random seeds. The models are trained on an NVIDIA RTX 4060 GPU using Adam optimizer, `batch_size = 1024`, `lr = 0.001`, and early stopping with a patience of 5 epochs. 
 
-Table I summarizes the empirical results (mean ± standard deviation) across the 5 runs.
+To demonstrate the architectural advantage of the proposed method, we compare it against multiple baselines ranging from simple heuristics to deep neural networks: Naive (Persistence) forecasting, a 30-minute Moving Average (MA), a Standard LSTM (serving as a recurrent baseline without attention or bidirectionality), and a competitive SG-TCN-LSTM model.
+
+Table I summarizes the horizon-specific empirical results (mean ± standard deviation) across the 5 runs.
 
 | Model / Baseline | Horizon | MSE | MAE (%) | RMSE (%) | $R^2$ |
 | :--- | :--- | :--- | :--- | :--- | :--- |
