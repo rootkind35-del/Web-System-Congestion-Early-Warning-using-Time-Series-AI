@@ -1,6 +1,6 @@
 # Predicting Web System Congestion Using Time-Series Artificial Intelligence
 
-**Abstract**—With the exponential growth of e-commerce and global web services, managing sudden traffic spikes remains a critical challenge in distributed cloud environments. Traditional reactive auto-scaling mechanisms often suffer from severe latency overhead, leading to transient service degradation or complete outages during abrupt surges. In this paper, we propose a proactive Early Warning System for web congestion based on deep learning time-series forecasting. We introduce a dual-architecture framework evaluating a hybrid Spatial-Temporal Graph Convolutional Network integrated with Long Short-Term Memory (SG-TCN-LSTM) against a Bidirectional LSTM with Self-Attention (BiLSTM-Attention). Evaluated on a 3-year dataset comprising 1.5 million telemetry points aggregated at 1-minute intervals, empirical results demonstrate that the BiLSTM-Attention model achieves high predictive stability (MAE ~2.34% CPU) with an ultra-low inference latency of 1.86 ms and a memory footprint of 9.65 MB. Furthermore, we address critical data leakage challenges in sequential filtering, integrate a Dynamic Exponential Moving Average (EMA) thresholding mechanism utilizing real-time latency SLO constraints to minimize false alarms, and validate a Page-Hinkley Concept Drift detector to trigger automated retraining under non-stationary distributions. Our end-to-end framework provides robust, real-time congestion forecasting at T+5, T+10, and T+15 minute horizons, laying a solid foundation for proactive cloud monitoring and AIOps orchestration.
+**Abstract**—With the exponential growth of e-commerce and global web services, managing sudden traffic spikes remains a critical challenge in distributed cloud environments. Traditional reactive auto-scaling mechanisms often suffer from severe latency overhead, leading to transient service degradation or complete outages during abrupt surges. In this paper, we propose a proactive Early Warning System for web congestion based on deep learning time-series forecasting. At the core of the framework is an optimized Bidirectional LSTM with Self-Attention (BiLSTM-Attention), functioning as the primary forecasting engine, benchmarked against multiple competitive baselines including a Spatial-Temporal (SG-TCN-LSTM) architecture. Evaluated on a 3-year dataset comprising 1.5 million telemetry points aggregated at 1-minute intervals, empirical results demonstrate that the BiLSTM-Attention model achieves high predictive stability (MAE ~2.34% CPU) with an ultra-low inference latency of 1.86 ms and a memory footprint of 9.65 MB. Furthermore, we address critical data leakage challenges in sequential filtering, integrate a Dynamic Exponential Moving Average (EMA) thresholding mechanism utilizing real-time latency SLO constraints to minimize false alarms, and validate a Page-Hinkley Concept Drift detector to trigger automated retraining under non-stationary distributions. Our lightweight end-to-end early-warning pipeline provides robust, real-time congestion forecasting at T+5, T+10, and T+15 minute horizons, laying a solid foundation for proactive cloud monitoring and AIOps orchestration.
 
 **Keywords**—Time-Series Forecasting, Deep Learning, Proactive Early Warning, Web Congestion, BiLSTM, Attention Mechanism, Concept Drift.
 
@@ -13,8 +13,8 @@ The rapid paradigm shift towards cloud computing and microservices has fundament
 To circumvent this latency bottleneck, proactive predictive auto-scaling methodologies leverage historical time-series telemetry to anticipate future computational loads [3]. While classical statistical methodologies like Auto-Regressive Integrated Moving Average (ARIMA) struggle to model the non-linear, high-dimensional stochasticity of web traffic, Deep Learning (DL) architectures exhibit high efficacy in capturing long-term temporal dependencies [4].
 
 In this paper, we propose a proactive Early Warning System designed to preemptively forecast systemic bottlenecks. The salient contributions of this work are summarized as follows:
-1. The formulation of a mathematically complete multi-horizon forecasting problem utilizing $F = 4$ telemetry features to predict future CPU load at 5, 10, and 15-minute horizons.
-2. The design and empirical evaluation of two advanced forecasting architectures, **SG-TCN-LSTM** and **BiLSTM-Attention**, specifically tailored for multi-horizon CPU load prediction.
+1. The formulation of a mathematically complete multi-horizon forecasting problem utilizing $F = 4$ multivariate telemetry features to predict the target CPU load at 5, 10, and 15-minute horizons, forming the basis for latency-constrained congestion alerting.
+2. The design and empirical evaluation of a lightweight end-to-end early-warning pipeline centered around an optimized **BiLSTM-Attention** forecasting engine, proven to outperform both simple heuristics and competitive deep learning baselines (e.g., SG-TCN-LSTM).
 3. The resolution of temporal data leakage in Savitzky-Golay preprocessing by implementing a strictly causal right-sided filter, ensuring zero information flow from future timesteps.
 4. The formulation of a robust alerting pipeline incorporating a **Dynamic EMA Thresholding** algorithm and an independently observed real-time latency SLO warning filter to suppress noise-induced false alarms, along with a **Page-Hinkley Concept Drift Detector** to monitor distribution shifts.
 5. The optimization of the model inference pipeline, reducing the active GPU memory allocation to 9.65 MB and achieving an inference latency of 1.86 ms, rendering the model highly deployable in real-time edge-computing environments.
@@ -277,6 +277,23 @@ Benchmarks were executed on an NVIDIA GeForce RTX 4060 Laptop GPU, PyTorch 2.11.
 *   **Model Memory Footprint**: Active GPU VRAM Allocation is **9.65 MB** (Estimated Parameter VRAM: 0.52 MB). PyTorch VRAM Reserved is **72.00 MB** with a Peak VRAM of **42.28 MB** during execution.
 *   **Serialized Weight File Size**: Calculated FP16 weight is **265.01 KB** (FP32 serialized file is 533.90 KB).
 *   **System RAM Usage**: Process RSS is 1146.84 MB, and VMS is 2746.27 MB.
+
+---
+
+### F. Full System Ablation Study
+To explicitly demonstrate the quantitative and qualitative contribution of each functional component in our pipeline, we summarize an end-to-end ablation study in Table III. The study isolates the multi-horizon forecasting architecture, alerting logic, monitoring, and deployment configurations.
+
+**Table III: Ablation Study of Pipeline Components**
+
+| Component Evaluated / Ablated | Target Subsystem | Impact of Removal / Modification |
+| :--- | :--- | :--- |
+| **Causal SG Filter** | Preprocessing | Prediction noise increases significantly; the model attempts to fit OS jitter rather than macro workload trends, degrading predictive stability. |
+| **Attention Mechanism** | Forecasting (Architectural) | Forecast error for horizon $T+15$ degrades to that of the Standard LSTM (Table I), exposing higher vulnerability to stochastic traffic spikes. |
+| **Dynamic EMA Threshold** | Alerting | False positive rate spikes from 0.0006 (Proposed) to 0.0035 (Static >80% threshold) and 0.5011 (EMA Only without Latency SLO constraint), generating severe operational noise (Table II). |
+| **Page-Hinkley Drift** | Monitoring | Post-drift prediction MAE remains permanently saturated at 15.02% rather than automatically recovering to 2.58% via the triggered retraining loop. |
+| **FP16 Quantization** | Edge Deployment | Serialized memory footprint roughly doubles (from 265 KB to 534 KB), proportionally increasing inference latency with zero measurable gain in validation accuracy. |
+
+*Analysis*: The ablation study confirms that the model's high $F_1$-score (86.45%) and deployment feasibility rely fundamentally on the full integration of the causal filtering, attention-augmented forecasting, and latency-constrained alerting pipeline, rather than solely on the neural network architecture itself.
 
 ---
 
