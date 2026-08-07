@@ -33,3 +33,6 @@ venv.bak/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Model checkpoints from individual runs
+models/*_run*.pth
