@@ -22,6 +22,10 @@ from src.models.baselines import StandardLSTM
 from src.models.tcn_bilstm_attention import TCNBiLSTMAttention
 from src.models.tcn_gru_attention import TCNGRUAttention
 from src.models.tcn_dualatt_bilstm import TCNDualAttBiLSTM
+from src.models.tcn_dualatt_transformer import TCNDualAttTransformer
+from src.models.cnn_patch_bilstm_attention import CNNPatchBiLSTMAttention
+from src.models.tsmixer_dualatt_bilstm import TSMixerDualAttBiLSTM
+from src.models.memory_tcn_dualatt_bilstm import MemoryTCNDualAttBiLSTM
 
 def load_data(data_path: str, batch_size: int = 256):
     print(f"Loading preprocessed dataset from: {data_path}")
@@ -57,6 +61,14 @@ def get_model(model_name: str, input_dim: int, device: torch.device):
         return TCNGRUAttention(input_dim=input_dim, hidden_dim=64, num_layers=2, output_dim=3).to(device)
     elif model_name == "tcn_dualatt_bilstm":
         return TCNDualAttBiLSTM(input_dim=input_dim, hidden_dim=64, num_layers=2, output_dim=3).to(device)
+    elif model_name == "tcn_dualatt_transformer":
+        return TCNDualAttTransformer(input_dim=input_dim, hidden_dim=64, num_layers=2, output_dim=3).to(device)
+    elif model_name == "cnn_patch_bilstm_attention":
+        return CNNPatchBiLSTMAttention(input_dim=input_dim, hidden_dim=64, num_layers=2, output_dim=3, patch_len=5).to(device)
+    elif model_name == "tsmixer_dualatt_bilstm":
+        return TSMixerDualAttBiLSTM(input_dim=input_dim, hidden_dim=64, num_layers=2, output_dim=3, seq_len=30).to(device)
+    elif model_name == "memory_tcn_dualatt_bilstm":
+        return MemoryTCNDualAttBiLSTM(input_dim=input_dim, hidden_dim=64, num_layers=2, output_dim=3, num_memory_slots=10).to(device)
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
@@ -232,7 +244,12 @@ if __name__ == "__main__":
     default_data = os.path.join(project_root, "data", "processed", "processed_dataset.npz")
     default_model_dir = os.path.join(project_root, "models")
     
-    parser.add_argument('--model', type=str, required=True, choices=['standard_lstm', 'sg_tcn_lstm', 'bilstm_attention', 'tcn_bilstm_attention', 'tcn_gru_attention', 'tcn_dualatt_bilstm'])
+    parser.add_argument('--model', type=str, required=True, choices=[
+        'standard_lstm', 'sg_tcn_lstm', 'bilstm_attention', 
+        'tcn_bilstm_attention', 'tcn_gru_attention', 'tcn_dualatt_bilstm',
+        'tcn_dualatt_transformer', 'cnn_patch_bilstm_attention',
+        'tsmixer_dualatt_bilstm', 'memory_tcn_dualatt_bilstm'
+    ])
     parser.add_argument('--data', type=str, default=default_data)
     parser.add_argument('--output_dir', type=str, default=default_model_dir)
     parser.add_argument('--epochs', type=int, default=15)
