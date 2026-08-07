@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Early Warning System - Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="bg-glow"></div>
+    
+    <header class="glass-panel">
+        <div class="logo">
+            <h1>🌐 AI Web Congestion Early Warning System</h1>
+            <p>Powered by BiLSTM-Attention & Dynamic Exponential Thresholding</p>
+        </div>
+        <div class="status-indicators">
+            <div class="indicator" id="status-t5">
+                <div class="dot green"></div> T+5 Status: Safe
+            </div>
+            <div class="indicator" id="status-drift">
+                <div class="dot green"></div> Model Drift: Stable
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Metrics Row -->
+        <section class="metrics-container">
+            <div class="metric-card glass-panel">
+                <h3>Current CPU Load</h3>
+                <h2 id="metric-cpu">-- %</h2>
+            </div>
+            <div class="metric-card glass-panel">
+                <h3>Dynamic Threshold (EMA)</h3>
+                <h2 id="metric-thresh" class="text-blue">-- %</h2>
+            </div>
+            <div class="metric-card glass-panel">
+                <h3>Inference Overhead (FP16)</h3>
+                <h2 id="metric-infer" class="text-purple">-- ms</h2>
+            </div>
+        </section>
+
+        <!-- Chart Section -->
+        <section class="chart-container glass-panel">
+            <div class="chart-header">
+                <h2>Real-time Traffic & Prediction (Simulation: 11.11 Mega Sale)</h2>
+            </div>
+            <div class="canvas-wrapper">
+                <canvas id="liveChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Log Section -->
+        <section class="log-container glass-panel">
+            <h2>Live System Logs</h2>
+            <div id="log-console" class="terminal-log">
+                <p class="sys-msg">[SYSTEM] Connecting to AI Inference Server...</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
