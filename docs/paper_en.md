@@ -31,11 +31,21 @@ To address spatial-temporal dependencies, researchers have increasingly hybridiz
 
 ## III. PROBLEM FORMULATION
 
-We formulate the proactive congestion warning task as a multi-horizon multivariate time-series forecasting problem. Let $\mathbf{X}_t \in \mathbb{R}^{W \times F}$ represent the historical telemetry observation matrix at time step $t$, where $W$ is the look-back window size and $F$ is the number of features (e.g., CPU load, memory utilization, request rate, and latency). 
+We formulate the proactive congestion warning task as a multi-horizon multivariate time-series forecasting problem. Let the historical telemetry observation matrix at time step `t` be represented as:
 
-The objective is to learn a mapping function $f_\theta(\cdot)$, parameterized by $\theta$, to predict the future CPU load $y$ at multiple discrete forecast horizons $H = \{h_1, h_2, h_3\}$:
+$$ \mathbf{X}_t \in \mathbb{R}^{W \times F} $$
+
+where `W` is the look-back window size and `F` is the number of features (e.g., CPU load, memory utilization, request rate, and latency). 
+
+The objective is to learn a mapping function parameterized by `θ` to predict the future CPU load `y` at multiple discrete forecast horizons `H = {h_1, h_2, h_3}`:
+
 $$ \hat{\mathbf{Y}}_t = f_\theta(\mathbf{X}_t) $$
-where $\hat{\mathbf{Y}}_t = [\hat{y}_{t+h_1}, \hat{y}_{t+h_2}, \hat{y}_{t+h_3}] \in \mathbb{R}^3$. In this study, we define $W = 30$ minutes and $H = \{5, 10, 15\}$ minutes. An impending congestion event is defined as the condition where any predicted scalar $\hat{y}_{t+h_i}$ exceeds a dynamically computed safety threshold $\tau_t$.
+
+where the predicted output vector is defined as:
+
+$$ \hat{\mathbf{Y}}_t = [\hat{y}_{t+h_1}, \hat{y}_{t+h_2}, \hat{y}_{t+h_3}] \in \mathbb{R}^3 $$
+
+In this study, we define `W = 30` minutes and `H = {5, 10, 15}` minutes. An impending congestion event is defined as the condition where any predicted scalar value `y` at step `t+h_i` exceeds a dynamically computed safety threshold `τ_t`.
 
 ---
 
@@ -47,25 +57,39 @@ The empirical foundation of our predictive model relies on a highly representati
 ![Figure 1: Dataset Overview (Capturing the 11.11 Mega Sale Spike)](./figures/fig2_dataset_overview.png)
 *Fig. 1. A two-week snapshot of the synthesized telemetry data, highlighting the extreme volatility and exponential traffic surge during the simulated 11.11 Mega Sale event.*
 
-Prior to network ingestion, the telemetry undergoes a **Savitzky-Golay (SG) Filter** to mitigate high-frequency sensor noise. The filtered signal $\tilde{x}_j$ is computed via a local polynomial regression:
+Prior to network ingestion, the telemetry undergoes a **Savitzky-Golay (SG) Filter** to mitigate high-frequency sensor noise. The filtered signal is computed via a local polynomial regression:
+
 $$ \tilde{x}_j = \sum_{i=-m}^{m} C_i x_{j+i} $$
-where $m$ is the half-window size and $C_i$ are the convolution coefficients. This non-linear technique strictly preserves the gradient steepness of critical traffic spikes, preventing signal degradation.
+
+where `m` is the half-window size and `C_i` are the convolution coefficients. This non-linear technique strictly preserves the gradient steepness of critical traffic spikes, preventing signal degradation.
 
 ### B. BiLSTM-Attention Architecture
-The proposed **BiLSTM-Attention** architecture is designed to capture deeply contextual temporal semantics. The sequence $\mathbf{X}_t$ is processed by a Bidirectional LSTM, producing hidden states $\mathbf{h}_i = [\overrightarrow{\mathbf{h}}_i \oplus \overleftarrow{\mathbf{h}}_i]$ for each time step $i \in \{1, \dots, W\}$.
+The proposed **BiLSTM-Attention** architecture is designed to capture deeply contextual temporal semantics. The input sequence is processed by a Bidirectional LSTM, producing concatenated hidden states for each time step `i`:
 
-To dynamically assign higher significance to critical precursor inflection points of a spike, a self-attention mechanism computes alignment scores $e_i$:
+$$ \mathbf{h}_i = [\overrightarrow{\mathbf{h}}_i \oplus \overleftarrow{\mathbf{h}}_i] $$
+
+To dynamically assign higher significance to critical precursor inflection points of a spike, a self-attention mechanism computes alignment scores `e_i` and attention weights `α_i`:
+
 $$ e_i = \mathbf{v}^T \tanh(\mathbf{W}_a \mathbf{h}_i + \mathbf{b}_a) $$
+
 $$ \alpha_i = \frac{\exp(e_i)}{\sum_{k=1}^{W} \exp(e_k)} $$
-The context vector $\mathbf{c} = \sum_{i=1}^{W} \alpha_i \mathbf{h}_i$ is then projected through a fully connected dense block to generate the multi-horizon predictions $\hat{\mathbf{Y}}_t$.
+
+The context vector is then computed as the weighted sum of the hidden states:
+
+$$ \mathbf{c} = \sum_{i=1}^{W} \alpha_i \mathbf{h}_i $$
+
+Finally, this context vector is projected through a fully connected dense block to generate the multi-horizon predictions.
 
 ### C. Dynamic Thresholding and Concept Drift Detection
 Static deterministic thresholds generate excessive false positives during scheduled nightly batch processing [5]. We propose a **Dynamic Threshold** based on an Exponential Moving Average (EMA):
-$$ \text{EMA}_t = \alpha x_t + (1 - \alpha) \text{EMA}_{t-1} $$
-$$ \tau_t = \text{EMA}_t + k \cdot \sigma_t $$
-Alerts are propagated strictly if $\hat{y}_{t+h_i} > \tau_t$ and the concurrent system latency violates SLO constraints.
 
-Furthermore, dynamic web environments are highly susceptible to non-stationary evolution. To detect permanent shifts in user behavior, we integrate the **Page-Hinkley (PH) Test**. The PH algorithm accumulates error residuals $r_t = |y_{t+h_1} - \hat{y}_{t+h_1}|$ and flags a "Concept Drift" anomaly when the cumulative sum breaches a predefined tolerance $\lambda$, triggering automated model retraining pipelines.
+$$ \text{EMA}_t = \alpha x_t + (1 - \alpha) \text{EMA}_{t-1} $$
+
+$$ \tau_t = \text{EMA}_t + k \cdot \sigma_t $$
+
+Alerts are propagated strictly if the predicted value exceeds `τ_t` and the concurrent system latency violates SLO constraints.
+
+Furthermore, dynamic web environments are highly susceptible to non-stationary evolution. To detect permanent shifts in user behavior, we integrate the **Page-Hinkley (PH) Test**. The PH algorithm accumulates error residuals and flags a "Concept Drift" anomaly when the cumulative sum breaches a predefined tolerance `λ`, triggering automated model retraining pipelines.
 
 ---
 
