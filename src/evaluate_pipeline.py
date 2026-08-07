@@ -13,7 +13,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
 sys.path.append(project_root)
 
-from src.models.bilstm_attention import BiLSTMAttention
+from src.models.tcn_dualatt_bilstm import TCNDualAttBiLSTM
 from src.utils.thresholding import DynamicThresholdEMA
 from src.utils.drift_detection import PageHinkleyDriftDetector
 
@@ -269,17 +269,17 @@ if __name__ == "__main__":
     
     data_file = os.path.join(project_root, "data", "processed", "processed_dataset.npz")
     scaler_file = os.path.join(project_root, "data", "processed", "minmax_scaler.pkl")
-    model_file = os.path.join(project_root, "models", "best_bilstm_attention.pth")
+    model_file = os.path.join(project_root, "models", "best_tcn_dualatt_bilstm.pth")
     
     if not os.path.exists(model_file):
-        print(f"Model file {model_file} not found. Please train 'bilstm_attention' first.")
+        print(f"Model file {model_file} not found. Please train 'tcn_dualatt_bilstm' first.")
         sys.exit(1)
         
     X_test, y_test = load_test_data(data_file)
     scaler = joblib.load(scaler_file)
     
     # Load model
-    model = BiLSTMAttention(input_dim=4, hidden_dim=64, num_layers=2, output_dim=3).to(device)
+    model = TCNDualAttBiLSTM(input_dim=4, hidden_dim=64, num_layers=2, output_dim=3).to(device)
     model.load_state_dict(torch.load(model_file, map_location=device))
     model.eval()
     

@@ -19,6 +19,9 @@ sys.path.append(project_root)
 from src.models.sg_tcn_lstm import MultiHorizonTCNLSTM
 from src.models.bilstm_attention import BiLSTMAttention
 from src.models.baselines import StandardLSTM
+from src.models.tcn_bilstm_attention import TCNBiLSTMAttention
+from src.models.tcn_gru_attention import TCNGRUAttention
+from src.models.tcn_dualatt_bilstm import TCNDualAttBiLSTM
 
 def load_data(data_path: str, batch_size: int = 256):
     print(f"Loading preprocessed dataset from: {data_path}")
@@ -48,6 +51,12 @@ def get_model(model_name: str, input_dim: int, device: torch.device):
         return BiLSTMAttention(input_dim=input_dim, hidden_dim=64, num_layers=2, output_dim=3).to(device)
     elif model_name == "standard_lstm":
         return StandardLSTM(input_dim=input_dim, hidden_dim=64, num_layers=2, output_dim=3).to(device)
+    elif model_name == "tcn_bilstm_attention":
+        return TCNBiLSTMAttention(input_dim=input_dim, hidden_dim=64, num_layers=2, output_dim=3).to(device)
+    elif model_name == "tcn_gru_attention":
+        return TCNGRUAttention(input_dim=input_dim, hidden_dim=64, num_layers=2, output_dim=3).to(device)
+    elif model_name == "tcn_dualatt_bilstm":
+        return TCNDualAttBiLSTM(input_dim=input_dim, hidden_dim=64, num_layers=2, output_dim=3).to(device)
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
@@ -223,7 +232,7 @@ if __name__ == "__main__":
     default_data = os.path.join(project_root, "data", "processed", "processed_dataset.npz")
     default_model_dir = os.path.join(project_root, "models")
     
-    parser.add_argument('--model', type=str, required=True, choices=['standard_lstm', 'sg_tcn_lstm', 'bilstm_attention'])
+    parser.add_argument('--model', type=str, required=True, choices=['standard_lstm', 'sg_tcn_lstm', 'bilstm_attention', 'tcn_bilstm_attention', 'tcn_gru_attention', 'tcn_dualatt_bilstm'])
     parser.add_argument('--data', type=str, default=default_data)
     parser.add_argument('--output_dir', type=str, default=default_model_dir)
     parser.add_argument('--epochs', type=int, default=15)
