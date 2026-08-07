@@ -36,21 +36,32 @@ To address spatial-temporal dependencies, researchers have increasingly hybridiz
 We formulate the proactive congestion warning task as a multi-horizon multivariate time-series forecasting problem. 
 
 ### A. Observations and Features
-Let the system telemetry be sampled at a fixed interval of $\Delta t = 1$ minute. The historical observation window is defined as a fixed sequence of $W = 30$ timesteps (equivalent to a 30-minute look-back window). At each timestep $t$, the system observes a feature vector $\mathbf{f}_t \in \mathbb{R}^F$, where $F = 4$. The input features are defined as:
-*   $f_{t, 1}$: CPU Utilization ($\%$)
-*   $f_{t, 2}$: RAM Utilization ($\%$)
+<p>Let the system telemetry be sampled at a fixed interval of $\Delta t = 1$ minute. The historical observation window is defined as a fixed sequence of $W = 30$ timesteps (equivalent to a 30-minute look-back window). At each timestep $t$, the system observes a feature vector $\mathbf{f}_t \in \mathbb{R}^F$, where $F = 4$. The input features are defined as:</p>
+
+*   $f_{t, 1}$: CPU Utilization (%)
+*   $f_{t, 2}$: RAM Utilization (%)
 *   $f_{t, 3}$: Request Rate (requests per second)
 *   $f_{t, 4}$: Response Latency (milliseconds)
 
 The input observation matrix at time step $t$ is represented as:
-$$ \mathbf{X}_t = [\mathbf{f}_{t-W+1}, \mathbf{f}_{t-W+2}, \dots, \mathbf{f}_t]^T \in \mathbb{R}^{W \times F} $$
+$$
+\mathbf{X}_t = [\mathbf{f}_{t-W+1}, \mathbf{f}_{t-W+2}, \dots, \mathbf{f}_t]^T \in \mathbb{R}^{W \times F}
+$$
 
 ### B. Target and Objective Function
-The target variables represent the future CPU utilization percentage at discrete forecast horizons $H = \{h_1, h_2, h_3\} = \{5, 10, 15\}$ minutes. The ground-truth target vector at time $t$ is defined as:
-$$ \mathbf{Y}_t = [y_{t+5}, y_{t+10}, y_{t+15}]^T \in \mathbb{R}^3 $$
-where $y_{t+h_i} \in [0, 100]$ is the actual CPU utilization at $t+h_i$. The objective is to learn a forecasting function $f_\theta(\cdot)$, parameterized by weights $\theta$, that maps the input window to the predicted horizons:
-$$ \hat{\mathbf{Y}}_t = f_\theta(\mathbf{X}_t) $$
-where $\hat{\mathbf{Y}}_t = [\hat{y}_{t+5}, \hat{y}_{t+10}, \hat{y}_{t+15}]^T \in \mathbb{R}^3$ are the forecasted CPU loads.
+<p>The target variables represent the future CPU utilization percentage at discrete forecast horizons $H = \{h_1, h_2, h_3\} = \{5, 10, 15\}$ minutes. The ground-truth target vector at time $t$ is defined as:</p>
+
+$$
+\mathbf{Y}_t = [y_{t+5}, y_{t+10}, y_{t+15}]^T \in \mathbb{R}^3
+$$
+
+<p>where $y_{t+h_i} \in [0, 100]$ is the actual CPU utilization at $t+h_i$. The objective is to learn a forecasting function $f_\theta(\cdot)$, parameterized by weights $\theta$, that maps the input window to the predicted horizons:</p>
+
+$$
+\hat{\mathbf{Y}}_t = f_\theta(\mathbf{X}_t)
+$$
+
+<p>where $\hat{\mathbf{Y}}_t = [\hat{y}_{t+5}, \hat{y}_{t+10}, \hat{y}_{t+15}]^T \in \mathbb{R}^3$ are the forecasted CPU loads.</p>
 
 ---
 
@@ -72,51 +83,111 @@ The system architecture consists of four sequential components: Causal Telemetry
 ```
 
 ### A. Data Preprocessing and Causal Filtering
-Prior to sequence ingestion, the telemetry undergoes noise smoothing to remove operating system jitter. A standard Savitzky-Golay (SG) filter utilizes a centered window:
-$$ \tilde{x}_t = \sum_{i=-m}^{m} C_i x_{t+i} $$
-where $m = (W_{SG}-1)/2$ is the half-window size. This centered configuration introduces severe **temporal data leakage** because the filtered value at time $t$ incorporates future values $\{x_{t+1}, \dots, x_{t+m}\}$, making it unusable in real-time forecasting.
+<p>Prior to sequence ingestion, the telemetry undergoes noise smoothing to remove operating system jitter. A standard Savitzky-Golay (SG) filter utilizes a centered window:</p>
 
-To resolve this, we formulate a **Causal Savitzky-Golay Filter**. We compute coefficients $b_i$ for a right-sided polynomial regression (evaluating strictly at the right boundary, index $pos = W_{SG} - 1$, with window length $W_{SG} = 15$ and polynomial order $d = 3$):
-$$ \tilde{x}_t = \sum_{i=0}^{W_{SG}-1} b_i x_{t - W_{SG} + 1 + i} $$
+$$
+\tilde{x}_t = \sum_{i=-m}^{m} C_i x_{t+i}
+$$
+
+<p>where $m = (W_{\text{SG}}-1)/2$ is the half-window size. This centered configuration introduces severe **temporal data leakage** because the filtered value at time $t$ incorporates future values $\{x_{t+1}, \dots, x_{t+m}\}$, making it unusable in real-time forecasting.</p>
+
+<p>To resolve this, we formulate a **Causal Savitzky-Golay Filter**. We compute coefficients $b_i$ for a right-sided polynomial regression (evaluating strictly at the right boundary, index $pos = W_{\text{SG}} - 1$, with window length $W_{\text{SG}} = 15$ and polynomial order $d = 3$):</p>
+
+$$
+\tilde{x}_t = \sum_{i=0}^{W_{\text{SG}}-1} b_i x_{t - W_{\text{SG}} + 1 + i}
+$$
+
 This is implemented as a causal Finite Impulse Response (FIR) filter using the coefficients $b$:
-$$ \tilde{x}_t = \text{lfilter}(b, 1, x_t) $$
-Because the filter uses only observations $\{x_i\}_{i \le t}$, it guarantees zero data leakage. Normalization is performed using a `MinMaxScaler` fitted exclusively on the training split:
-$$ z_t = \frac{\tilde{x}_t - \min(\mathbf{X}_{\text{train}})}{\max(\mathbf{X}_{\text{train}}) - \min(\mathbf{X}_{\text{train}})} $$
+$$
+\tilde{x}_t = \text{lfilter}(b, 1, x_t)
+$$
+
+<p>Because the filter uses only observations $\{x_i\}_{i \le t}$, it guarantees zero data leakage. Normalization is performed using a `MinMaxScaler` fitted exclusively on the training split:</p>
+
+$$
+z_t = \frac{\tilde{x}_t - \min(\mathbf{X}_{\text{train}})}{\max(\mathbf{X}_{\text{train}}) - \min(\mathbf{X}_{\text{train}})}
+$$
+
+---
 
 ### B. Prediction Architectures
 
 #### 1) Proposed BiLSTM-Attention Model
-The BiLSTM-Attention architecture captures long-term bidirectional temporal dependencies. The input matrix $\mathbf{X}_t$ is processed by a Bidirectional LSTM:
-$$ \overrightarrow{\mathbf{h}}_i = \text{LSTM}_{\text{fwd}}(\mathbf{f}_i, \overrightarrow{\mathbf{h}}_{i-1}) $$
-$$ \overleftarrow{\mathbf{h}}_i = \text{LSTM}_{\text{bwd}}(\mathbf{f}_i, \overleftarrow{\mathbf{h}}_{i+1}) $$
-The hidden states are concatenated: $\mathbf{h}_i = [\overrightarrow{\mathbf{h}}_i \oplus \overleftarrow{\mathbf{h}}_i] \in \mathbb{R}^{2d}$, where $d=64$ is the hidden dimension. To identify precursor patterns of traffic spikes, a self-attention mechanism computes weights $\alpha_i$:
-$$ e_i = \mathbf{v}^T \tanh(\mathbf{W}_a \mathbf{h}_i + \mathbf{b}_a) $$
-$$ \alpha_i = \frac{\exp(e_i)}{\sum_{k=1}^{W} \exp(e_k)} $$
-The context vector $\mathbf{c} = \sum_{i=1}^{W} \alpha_i \mathbf{h}_i \in \mathbb{R}^{128}$ is projected through a fully connected layer:
-$$ \hat{\mathbf{Y}}_t = \mathbf{W}_y \mathbf{c} + \mathbf{b}_y $$
+<p>The BiLSTM-Attention architecture captures long-term bidirectional temporal dependencies. The input matrix $\mathbf{X}_t$ is processed by a Bidirectional LSTM:</p>
+
+$$
+\overrightarrow{\mathbf{h}}_i = \text{LSTM}_{\text{fwd}}(\mathbf{f}_i, \overrightarrow{\mathbf{h}}_{i-1})
+$$
+$$
+\overleftarrow{\mathbf{h}}_i = \text{LSTM}_{\text{bwd}}(\mathbf{f}_i, \overleftarrow{\mathbf{h}}_{i+1})
+$$
+
+<p>The hidden states are concatenated: $\mathbf{h}_i = [\overrightarrow{\mathbf{h}}_i \oplus \overleftarrow{\mathbf{h}}_i] \in \mathbb{R}^{2d}$, where $d=64$ is the hidden dimension. To identify precursor patterns of traffic spikes, a self-attention mechanism computes weights $\alpha_i$:</p>
+
+$$
+e_i = \mathbf{v}^T \tanh(\mathbf{W}_a \mathbf{h}_i + \mathbf{b}_a)
+$$
+$$
+\alpha_i = \frac{\exp(e_i)}{\sum_{k=1}^{W} \exp(e_k)}
+$$
+
+<p>The context vector $\mathbf{c} = \sum_{i=1}^{W} \alpha_i \mathbf{h}_i \in \mathbb{R}^{128}$ is projected through a fully connected layer:</p>
+
+$$
+\hat{\mathbf{Y}}_t = \mathbf{W}_y \mathbf{c} + \mathbf{b}_y
+$$
+
 The model has a total of 135,684 parameters.
 
 #### 2) SG-TCN-LSTM Baseline Model
-As a deep learning baseline, we construct a hybrid TCN-LSTM model. The TCN front-end consists of two 1D-convolutional layers with channel dimensions of 64, kernel size of 3, padding of 1, and no dilation (dilation factor = 1). The convolutional outputs are processed by a 2-layer unidirectional LSTM with hidden dimension 64 and dropout 0.2. The final hidden state is mapped to the output layer:
-$$ \hat{\mathbf{Y}}_t = \mathbf{W}_f \mathbf{h}_W^{\text{LSTM}} + \mathbf{b}_f $$
+<p>As a deep learning baseline, we construct a hybrid TCN-LSTM model. The TCN front-end consists of two 1D-convolutional layers with channel dimensions of 64, kernel size of 3, padding of 1, and no dilation (dilation factor = 1). The convolutional outputs are processed by a 2-layer unidirectional LSTM with hidden dimension 64 and dropout 0.2. The final hidden state is mapped to the output layer:</p>
+
+$$
+\hat{\mathbf{Y}}_t = \mathbf{W}_f \mathbf{h}_W^{\text{LSTM}} + \mathbf{b}_f
+$$
+
 The baseline TCN-LSTM has a total of 80,195 parameters.
 
-### C. Dynamic Thresholding and Latency SLO Warning
-Static alerting thresholds generate excessive false alarms. We propose a Dynamic Threshold based on an Exponential Moving Average (EMA) and dynamic variance. The threshold $\tau_t$ is computed at time $t$ *before* the prediction horizon:
-$$ \text{EMA}_t = \alpha_{\text{EMA}} x_t + (1 - \alpha_{\text{EMA}}) \text{EMA}_{t-1} $$
-$$ \sigma^2_t = (1 - \alpha_{\text{var}}) (\sigma^2_{t-1} + \alpha_{\text{var}} (x_t - \text{EMA}_t)^2) $$
-$$ \tau_t = \text{EMA}_t + k \cdot \sigma_t $$
-where $x_t$ is the current CPU load, $\alpha_{\text{EMA}} = 0.1$, and $\alpha_{\text{var}} = 0.01$.
+---
 
-Furthermore, to resolve the methodological inconsistency of using CPU models to predict latency violations, we treat latency $L_t$ as an independently observed real-time signal. An alert for horizon $h_i$ is raised at time $t$ if and only if the predicted CPU load exceeds the threshold and the current latency violates a warning SLO constraint:
-$$ A_{t+h_i} = \mathbb{I}(\hat{y}_{t+h_i} > \tau_t) \wedge \mathbb{I}(L_t > L_{\text{warning}}) $$
-where $L_{\text{warning}} = 100$ ms is the warning threshold (representing a pre-SLO degradation state).
+### C. Dynamic Thresholding and Latency SLO Warning
+<p>Static alerting thresholds generate excessive false alarms. We propose a Dynamic Threshold based on an Exponential Moving Average (EMA) and dynamic variance. The threshold $\tau_t$ is computed at time $t$ *before* the prediction horizon:</p>
+
+$$
+\text{EMA}_t = \alpha_{\text{EMA}} x_t + (1 - \alpha_{\text{EMA}}) \text{EMA}_{t-1}
+$$
+$$
+\sigma^2_t = (1 - \alpha_{\text{var}}) (\sigma^2_{t-1} + \alpha_{\text{var}} (x_t - \text{EMA}_t)^2)
+$$
+$$
+\tau_t = \text{EMA}_t + k \cdot \sigma_t
+$$
+
+<p>where $x_t$ is the current CPU load, $\alpha_{\text{EMA}} = 0.1$, and $\alpha_{\text{var}} = 0.01$.</p>
+
+<p>Furthermore, to resolve the methodological inconsistency of using CPU models to predict latency violations, we treat latency $L_t$ as an independently observed real-time signal. An alert for horizon $h_i$ is raised at time $t$ if and only if the predicted CPU load exceeds the threshold and the current latency violates a warning SLO constraint:</p>
+
+$$
+A_{t+h_i} = \mathbb{I}(\hat{y}_{t+h_i} > \tau_t) \wedge \mathbb{I}(L_t > L_{\text{warning}})
+$$
+
+<p>where $L_{\text{warning}} = 100$ ms is the warning threshold (representing a pre-SLO degradation state).</p>
+
+---
 
 ### D. Concept Drift Monitoring
-To detect permanent changes in workload distributions (such as long-term software upgrades or user base shifts), we integrate the Page-Hinkley (PH) test on prediction residuals $r_t = |y_{t+5} - \hat{y}_{t+5}|$. The cumulative difference $U_t$ is defined as:
-$$ U_t = \sum_{j=1}^t (r_j - \bar{r}_j - \delta) $$
-where $\delta = 0.05$ is the allowed tolerance and $\bar{r}_j$ is the running mean of residuals. The system maintains $M_t = \max_{1 \le j \le t} U_j$. A concept drift is signaled if:
-$$ M_t - U_t > \lambda $$
+<p>To detect permanent changes in workload distributions (such as long-term software upgrades or user base shifts), we integrate the Page-Hinkley (PH) test on prediction residuals $r_t = |y_{t+5} - \hat{y}_{t+5}|$. The cumulative difference $U_t$ is defined as:</p>
+
+$$
+U_t = \sum_{j=1}^t (r_j - \bar{r}_j - \delta)
+$$
+
+<p>where $\delta = 0.05$ is the allowed tolerance and $\bar{r}_j$ is the running mean of residuals. The system maintains $M_t = \max_{1 \le j \le t} U_j$. A concept drift is signaled if:</p>
+
+$$
+M_t - U_t > \lambda
+$$
+
 where $\lambda = 30$. Upon detection, a retraining loop is triggered using the most recent window of drifted telemetry.
 
 ---
@@ -126,9 +197,15 @@ where $\lambda = 30$. Upon detection, a retraining loop is triggered using the m
 ### A. Dataset Setup
 We construct a 3-year telemetry dataset containing 1,576,800 data points. The dataset is aligned from NASA HTTP logs (scaled to represent transactional request rates), Wikipedia page traffic, and e-commerce infrastructure telemetry. 
 
-The dataset split is strictly chronological to prevent temporal leakage: 70% Train (1,103,716 samples), 15% Validation (236,506 samples), and 15% Test (236,506 samples). Synthetic traffic spikes representing Shopee 11.11 Mega Sale events were modeled using Gaussian distributions:
-$$ S(t) = A \cdot \exp\left(-\frac{(t - t_{\text{peak}})^2}{2 w^2}\right) $$
-where $A \in [60\%, 90\%]$, $w \in [15, 60]$ minutes, and were injected prior to splitting to evaluate forecasting robustness under high stress.
+<p>The dataset split is strictly chronological to prevent temporal leakage: 70% Train (1,103,716 samples), 15% Validation (236,506 samples), and 15% Test (236,506 samples). Synthetic traffic spikes representing Shopee 11.11 Mega Sale events were modeled using Gaussian distributions:</p>
+
+$$
+S(t) = A \cdot \exp\left(-\frac{(t - t_{\text{peak}})^2}{2 w^2}\right)
+$$
+
+<p>where $A \in [60\%, 90\%]$, $w \in [15, 60]$ minutes, and were injected prior to splitting to evaluate forecasting robustness under high stress.</p>
+
+---
 
 ### B. Forecasting Accuracy Benchmarks
 We train all models across 5 independent runs with different random seeds. The models are trained on an NVIDIA RTX 4060 GPU using Adam optimizer, `batch_size = 1024`, `lr = 0.001`, and early stopping with a patience of 5 epochs. We evaluate Naive (Persistence), Moving Average (MA), Standard LSTM, SG-TCN-LSTM, and the proposed BiLSTM-Attention models.
@@ -155,6 +232,8 @@ Table I summarizes the empirical results (mean ± standard deviation) across the
 
 *Analysis*: While SG-TCN-LSTM exhibits slightly lower MSE, the proposed **BiLSTM-Attention** model achieves the lowest Mean Absolute Error (MAE) across all horizons and exhibits significantly higher stability (indicated by a standard deviation that is 2.6 times smaller than TCN-LSTM and 7.6 times smaller than standard LSTM), proving its robustness against training stochasticity.
 
+---
+
 ### C. Alerting Threshold Ablation Study
 We evaluate the alerting performance of different threshold configurations against ground-truth congestion events (actual CPU load > 80% and latency > 100 ms).
 
@@ -169,6 +248,8 @@ Table II summarizes the operational alert metrics.
 
 *Analysis*: Integrating real-time latency verification with the predicted CPU load (Proposed Alert) reduces false alarms from 810 to 133 (an 83.5% reduction) and achieves the highest $F_1$-score of 86.45%, demonstrating high noise resistance.
 
+---
+
 ### D. Concept Drift Validation
 We inject a +15% step load increase at timestep 1000 in the test set. 
 
@@ -176,8 +257,10 @@ We inject a +15% step load increase at timestep 1000 in the test set.
 *Fig. 2. Performance of Page-Hinkley detector under simulated concept drift. The drift is detected within 1 step (1 minute delay), triggering model retraining and restoring prediction accuracy.*
 
 *   MAE Before Drift: **2.25%**
-*   MAE After Drift (Pre-retraining): **15.02%**
+*   MAE After Drift (Before Retraining): **15.02%**
 *   MAE Post-Retraining: **2.58%**
+
+---
 
 ### E. Rigorous Speed and VRAM Profiling
 Benchmarks were executed on an NVIDIA GeForce RTX 4060 Laptop GPU, PyTorch 2.11.0, and CUDA 12.8. We isolate preprocessing, inference, and post-processing latency over 1000 iterations.
