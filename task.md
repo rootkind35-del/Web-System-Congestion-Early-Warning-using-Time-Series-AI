@@ -1,17 +1,17 @@
-- `[/]` Data Preparation
-  - `[/]` Download August 1995 logs
-  - `[ ]` Refactor `src/data/make_dataset.py` to generate separated Train (July) and Test (August) CSVs
-  - `[ ]` Refactor `src/features/build_features.py` to handle separate Train/Val and Test split, fitting scaler only on Train
-  - `[ ]` Generate dataset files and build processed tensors
-- `[ ]` Re-huấn luyện (Purge & Retrain)
-  - `[ ]` Delete old weight checkpoints and statistics files in `models/`
-  - `[ ]` Rerun training for all 6 models (`tcn_dualatt_bilstm`, `bilstm_attention`, `sg_tcn_lstm`, `standard_lstm`, `itransformer`, `dlinear`) for 120 epochs
-- `[ ]` Evaluation & Figures Update
-  - `[ ]` Run `evaluate_pipeline.py` with CPU>15%, Latency>48ms thresholds
-  - `[ ]` Run `profile_model.py` for VRAM and latency profiling
-  - `[ ]` Run `generate_paper_plots.py` to regenerate all PNGs
-- `[ ]` Document Synchronizing
-  - `[ ]` Update `paper_en.md` with new metrics
-  - `[ ]` Update `manuscript.md` with new metrics
-  - `[ ]` Update `README.md`
-  - `[ ]` Commit and push to `main` branch
+- `[x]` Data Preparation
+  - `[x]` Download August 1995 logs
+  - `[x]` Refactor `src/data/make_dataset.py` to generate separated Train (July) and Test (August) CSVs
+  - `[x]` Refactor `src/features/build_features.py` to handle separate Train/Val and Test split, fitting scaler only on Train
+  - `[x]` Generate dataset files and build processed tensors
+- `[x]` Re-huấn luyện (Purge & Retrain)
+  - `[x]` Delete old weight checkpoints and statistics files in `models/`
+  - `[x]` Rerun training for all 6 models (`tcn_dualatt_bilstm`, `bilstm_attention`, `sg_tcn_lstm`, `standard_lstm`, `itransformer`, `dlinear`) for 120 epochs
+- `[x]` Evaluation & Figures Update
+  - `[x]` Run `evaluate_pipeline.py` with CPU>15%, Latency>48ms thresholds
+  - `[x]` Run `profile_model.py` for VRAM and latency profiling
+  - `[x]` Run `generate_paper_plots.py` to regenerate all PNGs
+- `[x]` Document Synchronizing
+  - `[x]` Update `paper_en.md` with new metrics
+  - `[x]` Update `manuscript.md` with new metrics
+  - `[x]` Update `README.md`
+  - `[x]` Commit and push to `main` branch
