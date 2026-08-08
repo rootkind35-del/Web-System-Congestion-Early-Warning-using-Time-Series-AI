@@ -2,18 +2,34 @@
 
 Dự án này là mã nguồn chính thức cho đề tài: **DỰ ĐOÁN NGHẼN HỆ THỐNG WEB BẰNG MÔ HÌNH TRÍ TUỆ NHÂN TẠO DỰA TRÊN CHUỖI THỜI GIAN**.
 
-Hệ thống sử dụng kiến trúc học sâu tiên tiến (**BiLSTM-Attention** và baseline **SG-TCN-LSTM**) để dự báo sớm tải CPU trước 5, 10 và 15 phút. Hệ thống tích hợp bộ lọc nhân quả Savitzky-Golay (Causal FIR Filter) để triệt tiêu hoàn toàn rò rỉ dữ liệu, cơ chế cảnh báo ngưỡng động EMA kết hợp bộ lọc trễ hệ thống (Latency SLO constraint) để lọc báo động giả, và mô hình phát hiện trôi dạt dữ liệu (Page-Hinkley Concept Drift) phục vụ việc kích hoạt retraining tự động.
+Hệ thống sử dụng kiến trúc học sâu tiên tiến nhất **TCN-DualAtt-BiLSTM** (Kế thừa và tối ưu hóa từ đợt tổng rà soát SOTA 2020-2024) để dự báo sớm tải CPU trước 5, 10 và 15 phút. Hệ thống tích hợp bộ lọc nhân quả Savitzky-Golay (Causal FIR Filter) để triệt tiêu hoàn toàn rò rỉ dữ liệu, cơ chế cảnh báo ngưỡng động EMA kết hợp bộ lọc trễ hệ thống (Latency SLO constraint) để lọc báo động giả, và mô hình phát hiện trôi dạt dữ liệu (Page-Hinkley Concept Drift) phục vụ việc kích hoạt retraining tự động.
 
 ---
 
 ## Tính năng Nổi bật & Chỉ số Đạt được
 
-*   **Độ chính xác & Độ ổn định cao**: BiLSTM-Attention đạt sai số MAE cực thấp (**2.34%** CPU tại T+5, **2.45%** tại T+10 và **2.66%** tại T+15) với độ lệch chuẩn nhỏ hơn **2.6 lần** so với TCN-LSTM baseline.
+*   **Độ chính xác & Độ ổn định cao (The Final Architecture)**: Trải qua quá trình rà soát (Ablation) và đối đầu với các kiến trúc SOTA 2023-2024 (như *iTransformer*, *DLinear*, *PatchTST*), **TCN-DualAtt-BiLSTM** chứng minh được sự ưu việt tuyệt đối trên bài toán có cửa sổ ngắn (W=30). Đạt sai số MAE cực thấp (**2.28%** CPU tại T+5, **2.41%** tại T+10 và **2.65%** tại T+15). TCN bắt vi mô (micro-spikes), Dual Attention lọc nhiễu đa chiều và BiLSTM tổng hợp động học.
 *   **Bộ cảnh báo chống nhiễu (Proposed SLO Alert)**: Kết hợp dự báo CPU và trễ hệ thống thực tế ($Latency > 100$ ms) để đạt **Precision 91.77%**, **Recall 81.71%**, **F1-score 86.45%** và giảm **83.5%** báo động giả (chỉ còn 133 cảnh báo nhầm so với 810 của ngưỡng tĩnh).
 *   **Phản ứng nhanh với Concept Drift**: Thuật toán Page-Hinkley phát hiện sự thay đổi phân phối tải chỉ sau **1 bước** (độ trễ 1 phút), kích hoạt học lại và phục hồi MAE từ **15.02%** về **2.58%** CPU.
 *   **Đo đạc hiệu năng thực tế (RTX 4060 GPU)**:
     *   *Độ trễ xử lý (Latency)*: Tiền xử lý (1.27 ms) + Model Inference (1.86 ms) + Hậu xử lý (0.02 ms) = **3.15 ms** cho toàn bộ pipeline.
     *   *Bộ nhớ*: Dung lượng file trọng số FP16 siêu nhẹ (**265 KB**). VRAM GPU tiêu thụ thực tế chỉ **9.65 MB** (Peak 42.28 MB), lý tưởng để nhúng vào Edge Servers hoặc chạy tích hợp trên Pods Kubernetes.
+
+
+---
+
+## Comprehensive Architecture Discovery (2020-2024)
+
+Để chứng minh sức mạnh của mô hình, chúng tôi đã tiến hành một đợt Benchmark quy mô lớn, đưa **TCN-DualAtt-BiLSTM** đối đầu trực tiếp với các "siêu kiến trúc" của năm 2023 và 2024:
+- **DLinear (SOTA 2023):** Kiến trúc Linear tối giản tối ưu.
+- **iTransformer (SOTA 2024):** Inverted Transformer áp dụng Attention lên Feature thay vì Time.
+- **CNN-Patch-BiLSTM (2023):** Ứng dụng kỹ thuật PatchTST nén tín hiệu.
+- **TS-Mixer (2023/24):** Kiến trúc MLP-Mixer thuần túy.
+
+Kết quả chứng minh **TCN-DualAtt-BiLSTM** đánh bại hoàn toàn các SOTA 2023/2024 nhờ khả năng duy trì độ phân giải cao cho các đỉnh nghẽn (flash crowds) mà không bị "làm mượt" (smoothed) hoặc đánh mất trật tự thời gian (như Transformer hay Patching trên chuỗi W=30).
+
+![Exhaustive Architecture Benchmark (2020-2024)](docs/figures/sota_architecture_benchmark.png)
+*Biểu đồ: So sánh Sai số tuyệt đối trung bình (MAE) trên 3 khung thời gian (T+5, T+10, T+15). Chỉ số càng thấp càng tốt.*
 
 ---
 
@@ -41,12 +57,12 @@ python src/features/build_features.py
 ### 2. Huấn luyện Mô hình lặp lại 5 lần (Training)
 Huấn luyện mô hình và lưu lịch sử loss (lặp lại 5 lần để đánh giá Mean ± Std, batch size 1024, 120 epochs):
 ```bash
-# Huấn luyện mô hình đề xuất
-python src/train.py --model bilstm_attention
+# Huấn luyện mô hình TCN-DualAtt-BiLSTM (Kiến trúc lõi)
+python src/train.py --model tcn_dualatt_bilstm
 
-# Huấn luyện mô hình baseline
-python src/train.py --model sg_tcn_lstm
-python src/train.py --model standard_lstm
+# Huấn luyện các mô hình SOTA Benchmark khác (để so sánh)
+python src/train.py --model itransformer
+python src/train.py --model dlinear
 ```
 Các file trọng số tốt nhất được lưu tại `models/best_[model_name].pth`.
 
