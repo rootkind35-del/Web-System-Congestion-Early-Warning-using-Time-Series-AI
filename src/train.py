@@ -26,6 +26,8 @@ from src.models.tcn_dualatt_transformer import TCNDualAttTransformer
 from src.models.cnn_patch_bilstm_attention import CNNPatchBiLSTMAttention
 from src.models.tsmixer_dualatt_bilstm import TSMixerDualAttBiLSTM
 from src.models.memory_tcn_dualatt_bilstm import MemoryTCNDualAttBiLSTM
+from src.models.dlinear import MultivariateDLinear
+from src.models.itransformer import iTransformer
 
 def load_data(data_path: str, batch_size: int = 256):
     print(f"Loading preprocessed dataset from: {data_path}")
@@ -69,6 +71,10 @@ def get_model(model_name: str, input_dim: int, device: torch.device):
         return TSMixerDualAttBiLSTM(input_dim=input_dim, hidden_dim=64, num_layers=2, output_dim=3, seq_len=30).to(device)
     elif model_name == "memory_tcn_dualatt_bilstm":
         return MemoryTCNDualAttBiLSTM(input_dim=input_dim, hidden_dim=64, num_layers=2, output_dim=3, num_memory_slots=10).to(device)
+    elif model_name == "dlinear":
+        return MultivariateDLinear(seq_len=30, input_dim=input_dim, output_dim=3).to(device)
+    elif model_name == "itransformer":
+        return iTransformer(seq_len=30, input_dim=input_dim, output_dim=3, d_model=64, n_heads=4, e_layers=2).to(device)
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
@@ -248,7 +254,8 @@ if __name__ == "__main__":
         'standard_lstm', 'sg_tcn_lstm', 'bilstm_attention', 
         'tcn_bilstm_attention', 'tcn_gru_attention', 'tcn_dualatt_bilstm',
         'tcn_dualatt_transformer', 'cnn_patch_bilstm_attention',
-        'tsmixer_dualatt_bilstm', 'memory_tcn_dualatt_bilstm'
+        'tsmixer_dualatt_bilstm', 'memory_tcn_dualatt_bilstm',
+        'dlinear', 'itransformer'
     ])
     parser.add_argument('--data', type=str, default=default_data)
     parser.add_argument('--output_dir', type=str, default=default_model_dir)

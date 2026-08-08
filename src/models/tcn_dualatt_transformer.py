@@ -43,13 +43,14 @@ class TCNDualAttTransformer(nn.Module):
         )
         
         # 3. Transformer Encoder (replaces BiLSTM + Temporal Attention)
-        self.pos_encoder = PositionalEncoding(d_model=hidden_dim, dropout=0.1, max_len=200)
+        # Increased dropout to 0.2 to prevent overfitting on short sequences
+        self.pos_encoder = PositionalEncoding(d_model=hidden_dim, dropout=0.2, max_len=200)
         
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=hidden_dim, 
             nhead=4, 
             dim_feedforward=hidden_dim * 4, 
-            dropout=0.1,
+            dropout=0.2,
             batch_first=True
         )
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
@@ -78,10 +79,11 @@ class TCNDualAttTransformer(nn.Module):
         
         transformer_out = self.transformer_encoder(x) # (batch, seq_len, hidden_dim)
         
-        # Aggregate temporal dimension (e.g. use last timestep)
-        last_out = transformer_out[:, -1, :]
+        # Aggregate temporal dimension using Mean Pooling instead of just the last token
+        # This prevents over-reliance on a single step and improves stability
+        pooled_out = torch.mean(transformer_out, dim=1)
         
         # 4. Dense (Multi-step Output)
-        predictions = self.fc(last_out)
+        predictions = self.fc(pooled_out)
         
         return predictions
