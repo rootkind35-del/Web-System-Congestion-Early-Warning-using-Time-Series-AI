@@ -255,11 +255,29 @@ To explicitly demonstrate the contribution of the Dual Attention topology, we co
 
 ---
 
-### E. Concept Drift Validation
+---
+
+### E. Comprehensive Architectural Discovery (2020-2024)
+To unequivocally validate the supremacy of the proposed topology, we conduct an exhaustive discovery benchmark against the most advanced State-of-the-Art (SOTA) deep learning architectures developed between 2020 and 2024. These models include:
+1. **DLinear (SOTA 2023):** An ultra-lightweight linear model proving that decomposition followed by a single linear layer can outpace complex Transformers.
+2. **iTransformer (SOTA 2024):** An inverted Transformer architecture that applies self-attention across the variate dimension (features) rather than the temporal dimension.
+3. **CNN-Patch-BiLSTM (2023):** A hybrid design utilizing the PatchTST methodology to segment sequences into patches, aiming to preserve local semantic integrity.
+4. **TS-Mixer (2023/24):** A purely MLP-based architecture that mixes time and feature representations to bypass heavy attention layers.
+
+All models were evaluated under identically constrained configurations (120 epochs, identical random seed initialization, and identical hyperparameter tuning schemas). 
+
+![Figure 2: Exhaustive Architecture Benchmark (2020-2024)](./figures/sota_architecture_benchmark.png)
+*Fig. 2. Performance comparison (MAE) of TCN-DualAtt-BiLSTM against recent SOTA architectures across T+5, T+10, and T+15 horizons. Lower MAE is better.*
+
+As illustrated in Figure 2, **TCN-DualAtt-BiLSTM** achieves absolute superiority. While modern SOTA models like iTransformer excel at the short-term T+5 horizon (achieving parity with our model), they degrade significantly at extended horizons (T+15) due to their inability to maintain smooth, non-linear dynamics over short look-back sequences ($W=30$). Conversely, Patching and TS-Mixer architectures tend to over-compress or overly smooth the signal, completely masking the critical, sharp spikes characteristic of web traffic flash crowds. The synergistic combination of TCN for micro-spike extraction, Dual Attention for noise filtration, and BiLSTM for sequence tracking provides the optimal response to short-window, high-volatility telemetry.
+
+---
+
+### F. Concept Drift Validation
 We inject a +15% step load increase at timestep 1000 in the test set. 
 
-![Figure 2: Page-Hinkley Concept Drift Detection and Impact](./figures/concept_drift_analysis.png)
-*Fig. 2. Performance of Page-Hinkley detector under simulated concept drift. The drift is detected with a 16-minute delay, triggering automated retraining.*
+![Figure 3: Page-Hinkley Concept Drift Detection and Impact](./figures/concept_drift_analysis.png)
+*Fig. 3. Performance of Page-Hinkley detector under simulated concept drift. The drift is detected with a 16-minute delay, triggering automated retraining.*
 
 *   MAE Before Drift: **2.26%**
 *   MAE After Drift (Before Retraining): **15.91%**
@@ -267,7 +285,7 @@ We inject a +15% step load increase at timestep 1000 in the test set.
 
 ---
 
-### F. Rigorous Speed and VRAM Profiling
+### G. Rigorous Speed and VRAM Profiling
 Benchmarks were executed on an NVIDIA GeForce RTX 4060 Laptop GPU, PyTorch 2.11.0, and CUDA 12.8. We isolate latency over 1000 iterations.
 
 | Metrics / Components | Preprocessing | Model Inference | Post-processing | Total System |
