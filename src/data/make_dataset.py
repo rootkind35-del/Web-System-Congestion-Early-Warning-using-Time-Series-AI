@@ -15,18 +15,17 @@ project_root = os.path.dirname(os.path.dirname(script_dir))
 sys.path.append(project_root)
 from src.data.event_injector import ECommerceEventInjector
 
-def download_nasa_logs(target_path: str):
-    url = "http://ita.ee.lbl.gov/traces/NASA_access_log_Jul95.gz"
+def download_nasa_logs(target_path: str, url: str):
     if not os.path.exists(target_path):
         print(f"Downloading NASA access log from {url}...")
         os.makedirs(os.path.dirname(target_path), exist_ok=True)
         urllib.request.urlretrieve(url, target_path)
         print("Download complete.")
     else:
-        print("NASA access log already exists locally.")
+        print(f"NASA access log at {target_path} already exists locally.")
 
 def parse_nasa_logs(gzip_path: str):
-    print("Parsing NASA access logs...")
+    print(f"Parsing NASA access logs from {gzip_path}...")
     pattern = re.compile(r'\[(\d{2}/\w{3}/\d{4}:\d{2}:\d{2}:\d{2})')
     counts = collections.Counter()
     
@@ -43,25 +42,32 @@ def parse_nasa_logs(gzip_path: str):
                 
     return counts
 
-def generate_hybrid_dataset(output_path: str):
-    nasa_gzip_path = os.path.join(project_root, "data", "raw", "NASA_access_log_Jul95.gz")
-    download_nasa_logs(nasa_gzip_path)
+def generate_dataset_for_month(month_name: str, output_path: str, inject_events: bool):
+    url = f"http://ita.ee.lbl.gov/traces/NASA_access_log_{month_name}.gz"
+    gzip_path = os.path.join(project_root, "data", "raw", f"NASA_access_log_{month_name}.gz")
+    
+    # Download logs
+    download_nasa_logs(gzip_path, url)
     
     # Parse logs to get raw request rate per minute
-    counts = parse_nasa_logs(nasa_gzip_path)
+    counts = parse_nasa_logs(gzip_path)
     
-    # Generate a continuous time range for July 1995
-    start_time = datetime(1995, 7, 1, 0, 0)
-    end_time = datetime(1995, 7, 31, 23, 59)
+    # Generate continuous time range
+    if month_name == "Jul95":
+        start_time = datetime(1995, 7, 1, 0, 0)
+        end_time = datetime(1995, 7, 31, 23, 59)
+    else:
+        start_time = datetime(1995, 8, 1, 0, 0)
+        end_time = datetime(1995, 8, 31, 23, 59)
+        
     delta = timedelta(minutes=1)
-    
     timestamps = []
     curr = start_time
     while curr <= end_time:
         timestamps.append(curr)
         curr += delta
         
-    print(f"Generated {len(timestamps)} continuous minutes for July 1995.")
+    print(f"Generated {len(timestamps)} continuous minutes for {month_name}.")
     
     # Map raw requests per minute
     base_req_rate = []
@@ -71,22 +77,21 @@ def generate_hybrid_dataset(output_path: str):
         base_req_rate.append(counts.get(key, 0))
         
     base_req_rate = np.array(base_req_rate, dtype=float)
-    
-    # Convert timestamps list to Pandas DatetimeIndex for event injection
     pd_timestamps = pd.DatetimeIndex(timestamps)
     
-    # Inject E-commerce events
-    # Because July 1995 NASA traffic peak is around 80 requests/min, 
-    # we first scale it up to a realistic enterprise load (peak ~1000 req/min)
+    # Scale up to modern enterprise load (peak ~1000 req/min)
     base_req_rate *= 12.0
     
-    # Inject Sales anomalies
-    injector = ECommerceEventInjector(pd_timestamps, base_req_rate)
-    # Target months is [7] (July)
-    req_rate = injector.inject_mega_sales(target_months=[7], target_days=[11, 12], multiplier=8.0)
-    req_rate = injector.inject_payday_sales(multiplier=3.0)
-    req_rate = np.clip(req_rate, 10, None)
-    
+    if inject_events:
+        # Inject Sales anomalies
+        injector = ECommerceEventInjector(pd_timestamps, base_req_rate)
+        req_rate = injector.inject_mega_sales(target_months=[7], target_days=[11, 12], multiplier=8.0)
+        req_rate = injector.inject_payday_sales(multiplier=3.0)
+        req_rate = np.clip(req_rate, 10, None)
+    else:
+        # Pure real traffic, scaled up, no sales injection
+        req_rate = np.clip(base_req_rate, 10, None)
+        
     # Compute system telemetry based on queuing dynamics
     num_samples = len(req_rate)
     max_req_capacity = 6000.0  # Server capacity limit
@@ -106,7 +111,7 @@ def generate_hybrid_dataset(output_path: str):
     latency = base_latency + 6 * queue_factor + np.random.lognormal(mean=1.2, sigma=0.4, size=num_samples)
     latency = np.clip(latency, 20, 15000)
     
-    print("Saving processed hybrid dataset...")
+    print("Saving processed telemetry dataset...")
     df = pd.DataFrame({
         'timestamp': pd_timestamps,
         'cpu_usage': np.round(cpu_usage, 2),
@@ -120,5 +125,11 @@ def generate_hybrid_dataset(output_path: str):
     print("Done! Saved dataset at:", output_path)
 
 if __name__ == "__main__":
-    out_path = os.path.join(project_root, "data", "raw", "multi_year_web_metrics.csv")
-    generate_hybrid_dataset(output_path=out_path)
+    train_path = os.path.join(project_root, "data", "raw", "multi_year_web_metrics.csv")
+    test_path = os.path.join(project_root, "data", "raw", "test_web_metrics.csv")
+    
+    print("=== Generating Train/Val dataset (July 1995 with 20% mixed events) ===")
+    generate_dataset_for_month("Jul95", train_path, inject_events=True)
+    
+    print("=== Generating Test dataset (August 1995, 100% real NASA traffic) ===")
+    generate_dataset_for_month("Aug95", test_path, inject_events=False)

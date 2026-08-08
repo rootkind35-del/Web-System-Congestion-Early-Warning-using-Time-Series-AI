@@ -158,7 +158,7 @@ def run_experiment(args):
         run_model_path = os.path.join(model_dir, f"best_{args.model}_run{run}.pth")
         
         # Early stopping helper
-        patience = 5
+        patience = 15
         patience_counter = 0
         
         for epoch in range(args.epochs):
