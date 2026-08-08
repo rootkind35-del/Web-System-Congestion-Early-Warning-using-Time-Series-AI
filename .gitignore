@@ -5,6 +5,7 @@ __pycache__/
 
 # Data files (Quá lớn để push lên GitHub)
 data/raw/*.csv
+data/raw/*.gz
 data/processed/*.npz
 data/processed/*.pkl
 

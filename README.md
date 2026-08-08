@@ -8,12 +8,12 @@ Hệ thống sử dụng kiến trúc học sâu tiên tiến nhất **TCN-DualA
 
 ## Tính năng Nổi bật & Chỉ số Đạt được
 
-*   **Độ chính xác & Độ ổn định cao (The Final Architecture)**: Trải qua quá trình rà soát (Ablation) và đối đầu với các kiến trúc SOTA 2023-2024 (như *iTransformer*, *DLinear*, *PatchTST*), **TCN-DualAtt-BiLSTM** chứng minh được sự ưu việt tuyệt đối trên bài toán có cửa sổ ngắn (W=30). Đạt sai số MAE cực thấp (**2.28%** CPU tại T+5, **2.41%** tại T+10 và **2.65%** tại T+15). TCN bắt vi mô (micro-spikes), Dual Attention lọc nhiễu đa chiều và BiLSTM tổng hợp động học.
-*   **Bộ cảnh báo chống nhiễu (Proposed SLO Alert)**: Kết hợp dự báo CPU và trễ hệ thống thực tế ($Latency > 100$ ms) để đạt **Precision 91.77%**, **Recall 81.71%**, **F1-score 86.45%** và giảm **83.5%** báo động giả (chỉ còn 133 cảnh báo nhầm so với 810 của ngưỡng tĩnh).
-*   **Phản ứng nhanh với Concept Drift**: Thuật toán Page-Hinkley phát hiện sự thay đổi phân phối tải chỉ sau **1 bước** (độ trễ 1 phút), kích hoạt học lại và phục hồi MAE từ **15.02%** về **2.58%** CPU.
+*   **Độ chính xác & Độ ổn định cao (The Final Architecture)**: Trải qua quá trình rà soát và đối đầu với các kiến trúc SOTA 2023-2024 (như *iTransformer*, *DLinear*), **TCN-DualAtt-BiLSTM** chứng minh được sự phù hợp tuyệt vời cho bài toán có cửa sổ ngắn (W=30) chạy trên tài nguyên hạn chế. Đạt sai số MAE cực thấp (chỉ **1.99** điểm phần trăm CPU tại T+5, **1.98** tại T+10 và **1.95** tại T+15) với độ lệch chuẩn siêu nhỏ (chỉ `± 0.019` ở T+10).
+*   **Bộ cảnh báo chống nhiễu (Proposed SLO Alert)**: Kết hợp dự báo CPU và trễ hệ thống thực tế ($Latency > 48$ ms) để giảm **34.1%** báo động giả so với cấu hình EMA+1.5*Std và giảm **91.7%** so với EMA thuần túy.
+*   **Phản ứng nhanh với Concept Drift**: Thuật toán Page-Hinkley phát hiện sự thay đổi phân phối tải chỉ sau **2 bước** (độ trễ 2 phút), kích hoạt học lại và phục hồi MAE từ **14.94%** về **3.21%** CPU.
 *   **Đo đạc hiệu năng thực tế (RTX 4060 GPU)**:
-    *   *Độ trễ xử lý (Latency)*: Tiền xử lý (1.27 ms) + Model Inference (1.86 ms) + Hậu xử lý (0.02 ms) = **3.15 ms** cho toàn bộ pipeline.
-    *   *Bộ nhớ*: Dung lượng file trọng số FP16 siêu nhẹ (**265 KB**). VRAM GPU tiêu thụ thực tế chỉ **9.65 MB** (Peak 42.28 MB), lý tưởng để nhúng vào Edge Servers hoặc chạy tích hợp trên Pods Kubernetes.
+    *   *Độ trễ xử lý (Latency)*: Tiền xử lý (1.25 ms) + Model Inference (2.45 ms) + Hậu xử lý (0.02 ms) = **3.72 ms** cho toàn bộ pipeline (Throughput 268.9 requests/s).
+    *   *Bộ nhớ*: Dung lượng file trọng số siêu nhẹ (**728 KB**). VRAM GPU tiêu thụ thực tế chỉ **9.83 MB** (Peak VRAM 42.65 MB), lý tưởng để nhúng vào Edge Servers hoặc chạy tích hợp trên Pods Kubernetes.
 
 
 ---

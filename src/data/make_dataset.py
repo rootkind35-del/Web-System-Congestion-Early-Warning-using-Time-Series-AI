@@ -2,6 +2,10 @@ import numpy as np
 import pandas as pd
 import os
 import argparse
+import urllib.request
+import gzip
+import re
+import collections
 from datetime import datetime, timedelta
 
 # Import ECommerceEventInjector
@@ -11,53 +15,100 @@ project_root = os.path.dirname(os.path.dirname(script_dir))
 sys.path.append(project_root)
 from src.data.event_injector import ECommerceEventInjector
 
-def generate_multi_year_dataset(output_path: str, years: int = 3, interval_minutes: int = 1):
-    days = years * 365
-    num_samples = int((days * 24 * 60) / interval_minutes)
-    start_time = datetime(2021, 1, 1, 0, 0, 0)
+def download_nasa_logs(target_path: str):
+    url = "http://ita.ee.lbl.gov/traces/NASA_access_log_Jul95.gz"
+    if not os.path.exists(target_path):
+        print(f"Downloading NASA access log from {url}...")
+        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+        urllib.request.urlretrieve(url, target_path)
+        print("Download complete.")
+    else:
+        print("NASA access log already exists locally.")
+
+def parse_nasa_logs(gzip_path: str):
+    print("Parsing NASA access logs...")
+    pattern = re.compile(r'\[(\d{2}/\w{3}/\d{4}:\d{2}:\d{2}:\d{2})')
+    counts = collections.Counter()
     
-    print("Starting Data Fusion Pipeline...")
-    print("Generating", num_samples, "samples for", years, "years...")
+    with gzip.open(gzip_path, 'rt', encoding='latin1') as f:
+        for i, line in enumerate(f):
+            match = pattern.search(line)
+            if match:
+                ts_str = match.group(1)
+                # Drop the seconds to group by minute (e.g. 01/Jul/1995:00:00)
+                minute_str = ts_str[:-3]
+                counts[minute_str] += 1
+            if i > 0 and i % 500000 == 0:
+                print(f"Parsed {i} log entries...")
+                
+    return counts
+
+def generate_hybrid_dataset(output_path: str):
+    nasa_gzip_path = os.path.join(project_root, "data", "raw", "NASA_access_log_Jul95.gz")
+    download_nasa_logs(nasa_gzip_path)
     
-    start_np = np.datetime64('2021-01-01T00:00')
-    np_timestamps = start_np + np.arange(num_samples).astype('timedelta64[m]')
-    timestamps = pd.DatetimeIndex(np_timestamps)
+    # Parse logs to get raw request rate per minute
+    counts = parse_nasa_logs(nasa_gzip_path)
     
-    hours = timestamps.hour.values
-    dayofweek = timestamps.dayofweek.values
-    months = timestamps.month.values
+    # Generate a continuous time range for July 1995
+    start_time = datetime(1995, 7, 1, 0, 0)
+    end_time = datetime(1995, 7, 31, 23, 59)
+    delta = timedelta(minutes=1)
     
-    trend = np.linspace(1000, 2500, num_samples)
-    daily_seasonality = 1.0 + 0.6 * np.sin((hours - 8) * (2 * np.pi / 24))
-    weekend_penalty = np.where(dayofweek >= 5, 0.8, 1.0)
-    monthly_seasonality = 1.0 + 0.1 * np.sin((months - 5) * (2 * np.pi / 12))
+    timestamps = []
+    curr = start_time
+    while curr <= end_time:
+        timestamps.append(curr)
+        curr += delta
+        
+    print(f"Generated {len(timestamps)} continuous minutes for July 1995.")
     
-    base_req_rate = trend * daily_seasonality * weekend_penalty * monthly_seasonality
+    # Map raw requests per minute
+    base_req_rate = []
+    for ts in timestamps:
+        # Format matching log: 01/Jul/1995:00:00
+        key = ts.strftime("%d/%b/%Y:%H:%M")
+        base_req_rate.append(counts.get(key, 0))
+        
+    base_req_rate = np.array(base_req_rate, dtype=float)
     
-    noise = np.random.poisson(lam=100, size=num_samples) - 100
-    base_req_rate += noise
+    # Convert timestamps list to Pandas DatetimeIndex for event injection
+    pd_timestamps = pd.DatetimeIndex(timestamps)
     
-    injector = ECommerceEventInjector(timestamps, base_req_rate)
-    req_rate = injector.inject_mega_sales(target_months=[11, 12], target_days=[11, 12], multiplier=8.0)
+    # Inject E-commerce events
+    # Because July 1995 NASA traffic peak is around 80 requests/min, 
+    # we first scale it up to a realistic enterprise load (peak ~1000 req/min)
+    base_req_rate *= 12.0
+    
+    # Inject Sales anomalies
+    injector = ECommerceEventInjector(pd_timestamps, base_req_rate)
+    # Target months is [7] (July)
+    req_rate = injector.inject_mega_sales(target_months=[7], target_days=[11, 12], multiplier=8.0)
     req_rate = injector.inject_payday_sales(multiplier=3.0)
-    req_rate = np.clip(req_rate, 50, None)
+    req_rate = np.clip(req_rate, 10, None)
     
-    max_req_capacity = 8000.0
+    # Compute system telemetry based on queuing dynamics
+    num_samples = len(req_rate)
+    max_req_capacity = 6000.0  # Server capacity limit
+    
+    # CPU usage dynamically scales with request rate
     cpu_usage = (req_rate / max_req_capacity) * 100.0
-    cpu_usage += np.random.normal(0, 3, num_samples)
+    cpu_usage += np.random.normal(0, 2, num_samples) # system noise
     cpu_usage = np.clip(cpu_usage, 0, 100)
     
-    ram_usage = 30 + (cpu_usage * 0.4) + np.random.normal(0, 2, num_samples)
+    # RAM usage scales with CPU load (dynamic memory allocation)
+    ram_usage = 30 + (cpu_usage * 0.45) + np.random.normal(0, 1.5, num_samples)
     ram_usage = np.clip(ram_usage, 0, 100)
     
+    # Response Latency modeled using M/M/1 queuing behavior (exponential growth near capacity)
     base_latency = 45.0
-    queue_factor = np.exp(np.clip((cpu_usage - 80) / 5, 0, 10))
-    latency = base_latency + 5 * queue_factor + np.random.lognormal(mean=1.0, sigma=0.5, size=num_samples)
+    queue_factor = np.exp(np.clip((cpu_usage - 80) / 4, -5, 10))
+    latency = base_latency + 6 * queue_factor + np.random.lognormal(mean=1.2, sigma=0.4, size=num_samples)
     latency = np.clip(latency, 20, 15000)
     
-    print("Packing and saving dataset...")
+    print("Saving processed hybrid dataset...")
     df = pd.DataFrame({
-        'timestamp': timestamps,
+        'timestamp': pd_timestamps,
         'cpu_usage': np.round(cpu_usage, 2),
         'ram_usage': np.round(ram_usage, 2),
         'req_rate': np.round(req_rate, 2),
@@ -65,16 +116,9 @@ def generate_multi_year_dataset(output_path: str, years: int = 3, interval_minut
     })
     
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    df.to_csv(output_path, index=False, chunksize=100000)
-    
-    print("Done! Saved at:", output_path)
+    df.to_csv(output_path, index=False)
+    print("Done! Saved dataset at:", output_path)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate Multi-year dataset (Wiki+NASA+Shopee).")
-    parser.add_argument('--years', type=int, default=3, help='Years.')
-    parser.add_argument('--interval', type=int, default=1, help='Interval in mins.')
-    
-    args = parser.parse_args()
     out_path = os.path.join(project_root, "data", "raw", "multi_year_web_metrics.csv")
-    
-    generate_multi_year_dataset(output_path=out_path, years=args.years, interval_minutes=args.interval)
+    generate_hybrid_dataset(output_path=out_path)

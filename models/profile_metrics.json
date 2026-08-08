@@ -1,14 +1,14 @@
 {
     "device":"NVIDIA GeForce RTX 4060 Laptop GPU",
-    "inf_mean":1.8615453,
-    "inf_median":1.7073499994,
-    "inf_p95":2.8297199993,
-    "total_mean":3.1548458,
-    "total_median":3.0006999987,
-    "total_p95":4.1927300002,
-    "total_params":135684,
-    "pth_size_kb":533.8994140625,
-    "rss_memory_mb":1146.8359375,
-    "vram_allocated_mb":9.6450195312,
-    "vram_reserved_mb":72.0
+    "inf_mean":2.4474489,
+    "inf_median":2.2727999967,
+    "inf_p95":3.2933800016,
+    "total_mean":3.7192202004,
+    "total_median":3.5188499969,
+    "total_p95":4.7828899871,
+    "total_params":183972,
+    "pth_size_kb":728.779296875,
+    "rss_memory_mb":1242.12109375,
+    "vram_allocated_mb":9.8344726562,
+    "vram_reserved_mb":58.0
 }

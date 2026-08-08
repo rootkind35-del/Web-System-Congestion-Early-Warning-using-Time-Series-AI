@@ -15,7 +15,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
 sys.path.append(project_root)
 
-from src.models.bilstm_attention import BiLSTMAttention
+from src.models.tcn_dualatt_bilstm import TCNDualAttBiLSTM
 from src.features.sg_filter import apply_sg_filter
 from src.utils.thresholding import DynamicThresholdEMA
 from src.utils.drift_detection import PageHinkleyDriftDetector
@@ -35,12 +35,12 @@ def profile_model():
     scaler_path = os.path.join(project_root, "data", "processed", "minmax_scaler.pkl")
     scaler = joblib.load(scaler_path)
     
-    # 1. Initialize proposed BiLSTM-Attention Model
-    model = BiLSTMAttention(input_dim=4, hidden_dim=64, num_layers=2, output_dim=3).to(device)
+    # 1. Initialize proposed TCN-DualAtt-BiLSTM Model
+    model = TCNDualAttBiLSTM(input_dim=4, hidden_dim=64, num_layers=2, output_dim=3).to(device)
     model.eval()
     
     # Load trained weights to measure actual model size on disk
-    model_weight_path = os.path.join(project_root, "models", "best_bilstm_attention.pth")
+    model_weight_path = os.path.join(project_root, "models", "best_tcn_dualatt_bilstm.pth")
     if os.path.exists(model_weight_path):
         model.load_state_dict(torch.load(model_weight_path, map_location=device))
         file_size_kb = os.path.getsize(model_weight_path) / 1024.0
@@ -157,7 +157,7 @@ def profile_model():
     print("\n--- Latency Performance (Milliseconds) ---")
     print(f"Preprocessing (Scaling + Filtering):")
     print(f" - Mean: {pre_stats['mean']:.4f} ms | Median: {pre_stats['median']:.4f} ms | P95: {pre_stats['p95']:.4f} ms | P99: {pre_stats['p99']:.4f} ms")
-    print(f"Model Inference (BiLSTM-Attention FP16):")
+    print(f"Model Inference (TCN-DualAtt-BiLSTM FP16):")
     print(f" - Mean: {inf_stats['mean']:.4f} ms | Median: {inf_stats['median']:.4f} ms | P95: {inf_stats['p95']:.4f} ms | P99: {inf_stats['p99']:.4f} ms")
     print(f"Post-processing (Alerting + Concept Drift):")
     print(f" - Mean: {post_stats['mean']:.4f} ms | Median: {post_stats['median']:.4f} ms | P95: {post_stats['p95']:.4f} ms | P99: {post_stats['p99']:.4f} ms")

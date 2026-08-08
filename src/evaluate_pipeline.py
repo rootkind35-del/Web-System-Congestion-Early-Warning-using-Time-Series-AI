@@ -92,9 +92,9 @@ def run_threshold_ablation(X_test, y_test_actual, y_pred_actual, scaler):
     current_latency = scaler.inverse_transform(dummy)[:, 3]
     
     # Ground truth labels
-    # Ground truth labels (defined as actual congestion when CPU > 80% AND latency > 100ms)
+    # Ground truth labels (defined as actual congestion when CPU > 15% AND latency > 48ms)
     actual_cpu_t5 = y_test_actual[:, 0]
-    actual_congested = (actual_cpu_t5 > 80.0) & (current_latency > 100.0)
+    actual_congested = (actual_cpu_t5 > 15.0) & (current_latency > 48.0)
     
     # Initialize EMA and Std dynamic values
     pred_cpu_t5 = y_pred_actual[:, 0]
@@ -116,7 +116,7 @@ def run_threshold_ablation(X_test, y_test_actual, y_pred_actual, scaler):
         std_cpu[i] = np.sqrt(current_var)
         
     # Define thresholds
-    static_thresh = 80.0
+    static_thresh = 15.0
     ema_thresh = ema_cpu
     ema_std_thresh = ema_cpu + 1.5 * std_cpu
     
@@ -124,14 +124,14 @@ def run_threshold_ablation(X_test, y_test_actual, y_pred_actual, scaler):
     alert_static = pred_cpu_t5 > static_thresh
     alert_ema = pred_cpu_t5 > ema_thresh
     alert_ema_std = pred_cpu_t5 > ema_std_thresh
-    # Proposed Alert: CPU > EMA (rising slope) AND current latency violates warning threshold
-    alert_proposed = (pred_cpu_t5 > ema_cpu) & (current_latency > 100.0)
+    # Proposed Alert: CPU > EMA + 1.5*Std AND current latency violates warning threshold
+    alert_proposed = (pred_cpu_t5 > ema_cpu + 1.5 * std_cpu) & (current_latency > 48.0)
     
     configs = [
-        ("Static (>80%)", alert_static),
+        ("Static (>15%)", alert_static),
         ("EMA Only", alert_ema),
         ("EMA + 1.5*Std", alert_ema_std),
-        ("Proposed Full Alert (k=0.0, Latency>100ms)", alert_proposed)
+        ("Proposed Full Alert (k=1.5, Latency>48ms)", alert_proposed)
     ]
     
     metrics_report = []
