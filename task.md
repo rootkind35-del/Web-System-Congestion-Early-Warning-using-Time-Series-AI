@@ -1,12 +1,23 @@
-- `[/]` Download large datasets
-  - `[/]` Google Cluster Data (10.08 GB) - *Downloading, ~1.2 GB downloaded*
-  - `[ ]` Microsoft Azure VM Traces (10.10 GB)
-  - `[ ]` Amazon Reviews Data (18.73 GB)
-  - `[ ]` Alibaba Cluster Data (27.20 GB)
-- `[ ]` Preprocessing & Feature Extraction
-  - `[ ]` Build time-series parser scripts for Google/Azure/Amazon/Alibaba
-  - `[ ]` Generate unified metric tables and tensors for cross-site training
-- `[ ]` Retrain & Evaluate Models
-  - `[ ]` Train all 6 models sequentially
-  - `[ ]` Update IEEE/ACM research paper figures and metrics
-  - `[ ]` Sync documentation and push to main branch
+# Kế hoạch Thực thi (Goal: Xây dựng Benchmark Luận văn & Mô phỏng Concept Drift) - ĐÃ HOÀN THÀNH 100%
+
+- `[x]` Chuẩn bị Mô hình & Baseline (Zero Leakage)
+  - `[x]` TCN-DualAtt-BiLSTM (Mô hình chính)
+  - `[x]` StandardLSTM & SG-TCN-LSTM & BiLSTM-Attention
+  - `[x]` Code `NaivePersistence` (Baseline Thống kê)
+  - `[x]` Code `Transformer_MultiTask` (Heavyweight Baseline đại diện Informer/iTransformer)
+  - `[x]` Chỉnh sửa cơ chế Smoothing sang Causal EMA/Savitzky-Golay để đảm bảo Zero Data Leakage.
+- `[x]` Cập nhật Huấn luyện & Đo lường Production
+  - `[x]` Cập nhật script train hỗ trợ 5 mô hình đa nhiệm trên 3GB Microsoft Azure Parquet Data.
+  - `[x]` Tích hợp bộ đo VRAM (`torch.cuda.max_memory_allocated`).
+  - `[x]` Tích hợp bộ đo Inference Time (thời gian chạy / batch).
+  - `[x]` Tiến hành chạy 120 Epochs (có Early Stopping, Batch Size = 16,384).
+- `[x]` Hệ thống Đánh giá Toàn diện (Classification & Forecasting)
+  - `[x]` Code file tính toán FPR, False Alarms (`src/evaluate_full_metrics.py`).
+  - `[x]` Code file tính $R^2$ Score cho bài toán hồi quy (Risk).
+- `[x]` Mô phỏng Trôi dạt (Concept Drift)
+  - `[x]` Code `concept_drift_simulation.py` tiêm nhiễu ngẫu nhiên.
+  - `[x]` Tích hợp thuật toán Page-Hinkley theo dõi MAE.
+  - `[x]` Code logic Online Retraining khi Page-Hinkley kích hoạt cảnh báo.
+- `[x]` Viết báo cáo & Nghiên cứu
+  - `[x]` Cập nhật đồng bộ `README.md`, `manuscript.md`, `paper_en.md`, `thesis_report.md` chỉ tập trung vào Azure Data và các luận điểm mới.
+  - `[x]` Xuất 3 biểu đồ nghiên cứu `fig1`, `fig2`, `fig3` cho phần Ablation Study & Concept Drift.
