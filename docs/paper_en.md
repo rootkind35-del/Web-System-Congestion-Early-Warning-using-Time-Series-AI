@@ -325,3 +325,7 @@ This paper presents a proactive, end-to-end Early Warning System for web congest
 [10] T. Nguyen, V. Le, and D. Pham, "DeepScaler: Spatiotemporal GNN for Proactive Cloud Scaling," *Proc. IEEE International Conference on Distributed Computing Systems (ICDCS)*, 2022, pp. 300-310.
 [11] J. Park, B. Choi, C. Lee, and D. Han, "GRAF: A Graph Neural Network-based Proactive Resource Allocation Framework for SLO-Oriented Microservices," *IEEE/ACM Transactions on Networking*, 2023.
 [12] S. Wang, H. Liu, and Y. Zhang, "Graph-PHPA: Combining LSTM and GNN for Robust Load Prediction," *IEEE Access*, vol. 10, pp. 55600-55615, 2022.
+[13] "Prediction Study Based on TCN-BiLSTM-SA Time Series Model," *Atlantis Press*, 2023. [Online]. Available: https://doi.org/10.2991/978-94-6463-266-8_21
+[14] "Oil Logging Reservoir Recognition Based on TCN and SA-BiLSTM Deep Learning Method," *Engineering Applications of Artificial Intelligence*, 2023. [Online]. Available: https://doi.org/10.1016/j.engappai.2023.105950
+[15] "Battery state-of-health prediction based on feature extraction and a VMD–TCN–BiLSTM–self-attention model," *Journal of Energy Storage*, 2026. [Online]. Available: https://doi.org/10.1016/j.est.2026.121629
+[16] "Photovoltaic Power Forecasting: Parallel TCN-BiLSTM + Temporal-Spatial Attention," *Energy Engineering*, 2026. [Online]. Available: https://www.techscience.com/energy/online/detail/25098

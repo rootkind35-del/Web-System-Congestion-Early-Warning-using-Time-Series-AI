@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import os
-import argparse
 import urllib.request
 import gzip
 import re
@@ -15,17 +14,17 @@ project_root = os.path.dirname(os.path.dirname(script_dir))
 sys.path.append(project_root)
 from src.data.event_injector import ECommerceEventInjector
 
-def download_nasa_logs(target_path: str, url: str):
+def download_logs(target_path: str, url: str):
     if not os.path.exists(target_path):
-        print(f"Downloading NASA access log from {url}...")
+        print(f"Downloading logs from {url}...")
         os.makedirs(os.path.dirname(target_path), exist_ok=True)
         urllib.request.urlretrieve(url, target_path)
         print("Download complete.")
     else:
-        print(f"NASA access log at {target_path} already exists locally.")
+        print(f"Log archive at {target_path} already exists locally.")
 
-def parse_nasa_logs(gzip_path: str):
-    print(f"Parsing NASA access logs from {gzip_path}...")
+def parse_logs(gzip_path: str):
+    print(f"Parsing access logs from {gzip_path}...")
     pattern = re.compile(r'\[(\d{2}/\w{3}/\d{4}:\d{2}:\d{2}:\d{2})')
     counts = collections.Counter()
     
@@ -34,7 +33,6 @@ def parse_nasa_logs(gzip_path: str):
             match = pattern.search(line)
             if match:
                 ts_str = match.group(1)
-                # Drop the seconds to group by minute (e.g. 01/Jul/1995:00:00)
                 minute_str = ts_str[:-3]
                 counts[minute_str] += 1
             if i > 0 and i % 500000 == 0:
@@ -42,94 +40,142 @@ def parse_nasa_logs(gzip_path: str):
                 
     return counts
 
-def generate_dataset_for_month(month_name: str, output_path: str, inject_events: bool):
-    url = f"http://ita.ee.lbl.gov/traces/NASA_access_log_{month_name}.gz"
-    gzip_path = os.path.join(project_root, "data", "raw", f"NASA_access_log_{month_name}.gz")
+def compute_8d_multivariate(pd_timestamps, req_rate, max_req_capacity=6000.0):
+    num_samples = len(req_rate)
     
-    # Download logs
-    download_nasa_logs(gzip_path, url)
+    # 1. Request_rate (Given)
     
-    # Parse logs to get raw request rate per minute
-    counts = parse_nasa_logs(gzip_path)
+    # 2. CPU_usage
+    # Linear initially, but bottlenecks at 100%
+    cpu_usage = (req_rate / max_req_capacity) * 100.0
+    cpu_usage += np.random.normal(0, 2, num_samples) # system noise
+    cpu_usage = np.clip(cpu_usage, 0, 100)
     
-    # Generate continuous time range
-    if month_name == "Jul95":
-        start_time = datetime(1995, 7, 1, 0, 0)
-        end_time = datetime(1995, 7, 31, 23, 59)
-    else:
-        start_time = datetime(1995, 8, 1, 0, 0)
-        end_time = datetime(1995, 8, 31, 23, 59)
-        
+    # 3. Memory_usage
+    # Scales with CPU, but has a base usage and memory leak (accumulates slowly)
+    ram_usage = 30 + (cpu_usage * 0.45) + np.random.normal(0, 1.5, num_samples)
+    ram_usage = np.clip(ram_usage, 0, 100)
+    
+    # 4. Network_IO (Mbps)
+    # Proportional to requests + background noise
+    network_io = req_rate * np.random.uniform(1.2, 2.5, num_samples) + np.random.normal(5, 1, num_samples)
+    network_io = np.clip(network_io, 0, None)
+    
+    # 5. Disk_IO (MB/s)
+    # Spikes hard when Memory > 90% due to OS swapping
+    disk_io = 10 + req_rate * 0.05 + np.random.normal(0, 5, num_samples)
+    swap_factor = np.exp(np.clip((ram_usage - 90) / 2.0, 0, 5)) - 1
+    disk_io += swap_factor * 50.0  # Massive spike if swapping
+    disk_io = np.clip(disk_io, 0, None)
+    
+    # 6. Response_time (Latency in ms)
+    # M/M/1 queueing theory. Exponential growth when CPU is near 100.
+    base_latency = 45.0
+    queue_factor = np.exp(np.clip((cpu_usage - 80) / 4.0, -5, 10))
+    latency = base_latency + 6 * queue_factor + np.random.lognormal(mean=1.2, sigma=0.4, size=num_samples)
+    latency = np.clip(latency, 20, 30000)
+    
+    # 7. Error_Rate_5xx (%)
+    # Non-linear probability based on Response_time timeout (e.g., > 3000ms triggers errors)
+    # And if CPU == 100%, errors spike.
+    error_prob = np.clip((latency - 3000) / 5000.0, 0, 1) * 100.0 # Up to 100% error rate if latency > 8000ms
+    cpu_err_factor = np.exp(np.clip((cpu_usage - 98) / 0.5, 0, 5)) - 1
+    error_rate = error_prob + cpu_err_factor * 5.0 + np.random.normal(0, 0.1, num_samples)
+    error_rate = np.clip(error_rate, 0, 100)
+    
+    # Assemble DataFrame exactly as requested
+    df = pd.DataFrame({
+        'timestamp': pd_timestamps,
+        'Request_rate': np.round(req_rate, 2),
+        'CPU_usage': np.round(cpu_usage, 2),
+        'Memory_usage': np.round(ram_usage, 2),
+        'Disk_IO': np.round(disk_io, 2),
+        'Network_IO': np.round(network_io, 2),
+        'Response_time': np.round(latency, 2),
+        'Error_Rate_5xx': np.round(error_rate, 2)
+    })
+    
+    return df
+
+def generate_calgary_dataset(output_path: str):
+    url = "http://ita.ee.lbl.gov/traces/calgary_access_log.gz"
+    gzip_path = os.path.join(project_root, "data", "raw", "calgary_access_log.gz")
+    
+    download_logs(gzip_path, url)
+    counts = parse_logs(gzip_path)
+    
+    start_time = datetime(1994, 10, 24, 0, 0)
+    end_time = datetime(1995, 10, 11, 23, 59)
     delta = timedelta(minutes=1)
+    
     timestamps = []
     curr = start_time
     while curr <= end_time:
         timestamps.append(curr)
         curr += delta
         
-    print(f"Generated {len(timestamps)} continuous minutes for {month_name}.")
+    print(f"Generated {len(timestamps)} minutes for Calgary.")
     
-    # Map raw requests per minute
     base_req_rate = []
     for ts in timestamps:
-        # Format matching log: 01/Jul/1995:00:00
         key = ts.strftime("%d/%b/%Y:%H:%M")
         base_req_rate.append(counts.get(key, 0))
         
-    base_req_rate = np.array(base_req_rate, dtype=float)
+    base_req_rate = np.array(base_req_rate, dtype=float) * 350.0
     pd_timestamps = pd.DatetimeIndex(timestamps)
     
-    # Scale up to modern enterprise load (peak ~1000 req/min)
-    base_req_rate *= 12.0
+    injector = ECommerceEventInjector(pd_timestamps, base_req_rate)
+    req_rate = injector.inject_mega_sales(target_months=[11, 12], target_days=[11, 12], multiplier=8.0)
+    req_rate = injector.inject_payday_sales(multiplier=3.0)
+    req_rate = np.clip(req_rate, 10, None)
     
-    if inject_events:
-        # Inject Sales anomalies
-        injector = ECommerceEventInjector(pd_timestamps, base_req_rate)
-        req_rate = injector.inject_mega_sales(target_months=[7], target_days=[11, 12], multiplier=8.0)
-        req_rate = injector.inject_payday_sales(multiplier=3.0)
-        req_rate = np.clip(req_rate, 10, None)
-    else:
-        # Pure real traffic, scaled up, no sales injection
-        req_rate = np.clip(base_req_rate, 10, None)
-        
-    # Compute system telemetry based on queuing dynamics
-    num_samples = len(req_rate)
-    max_req_capacity = 6000.0  # Server capacity limit
-    
-    # CPU usage dynamically scales with request rate
-    cpu_usage = (req_rate / max_req_capacity) * 100.0
-    cpu_usage += np.random.normal(0, 2, num_samples) # system noise
-    cpu_usage = np.clip(cpu_usage, 0, 100)
-    
-    # RAM usage scales with CPU load (dynamic memory allocation)
-    ram_usage = 30 + (cpu_usage * 0.45) + np.random.normal(0, 1.5, num_samples)
-    ram_usage = np.clip(ram_usage, 0, 100)
-    
-    # Response Latency modeled using M/M/1 queuing behavior (exponential growth near capacity)
-    base_latency = 45.0
-    queue_factor = np.exp(np.clip((cpu_usage - 80) / 4, -5, 10))
-    latency = base_latency + 6 * queue_factor + np.random.lognormal(mean=1.2, sigma=0.4, size=num_samples)
-    latency = np.clip(latency, 20, 15000)
-    
-    print("Saving processed telemetry dataset...")
-    df = pd.DataFrame({
-        'timestamp': pd_timestamps,
-        'cpu_usage': np.round(cpu_usage, 2),
-        'ram_usage': np.round(ram_usage, 2),
-        'req_rate': np.round(req_rate, 2),
-        'latency_ms': np.round(latency, 2)
-    })
+    df = compute_8d_multivariate(pd_timestamps, req_rate)
     
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     df.to_csv(output_path, index=False)
-    print("Done! Saved dataset at:", output_path)
+    print("Done! Saved Calgary Train dataset at:", output_path)
+
+def generate_nasa_test_dataset(output_path: str):
+    url = "http://ita.ee.lbl.gov/traces/NASA_access_log_Aug95.gz"
+    gzip_path = os.path.join(project_root, "data", "raw", "NASA_access_log_Aug95.gz")
+    
+    download_logs(gzip_path, url)
+    counts = parse_logs(gzip_path)
+    
+    start_time = datetime(1995, 8, 1, 0, 0)
+    end_time = datetime(1995, 8, 31, 23, 59)
+    delta = timedelta(minutes=1)
+    
+    timestamps = []
+    curr = start_time
+    while curr <= end_time:
+        timestamps.append(curr)
+        curr += delta
+        
+    print(f"Generated {len(timestamps)} minutes for NASA Test.")
+    
+    base_req_rate = []
+    for ts in timestamps:
+        key = ts.strftime("%d/%b/%Y:%H:%M")
+        base_req_rate.append(counts.get(key, 0))
+        
+    base_req_rate = np.array(base_req_rate, dtype=float) * 12.0
+    req_rate = np.clip(base_req_rate, 10, None)
+    
+    pd_timestamps = pd.DatetimeIndex(timestamps)
+    
+    df = compute_8d_multivariate(pd_timestamps, req_rate)
+    
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    df.to_csv(output_path, index=False)
+    print("Done! Saved NASA Test dataset at:", output_path)
 
 if __name__ == "__main__":
-    train_path = os.path.join(project_root, "data", "raw", "multi_year_web_metrics.csv")
-    test_path = os.path.join(project_root, "data", "raw", "test_web_metrics.csv")
+    train_path = os.path.join(project_root, "data", "raw", "web_system_multivariate_train.csv")
+    test_path = os.path.join(project_root, "data", "raw", "web_system_multivariate_test.csv")
     
-    print("=== Generating Train/Val dataset (July 1995 with 20% mixed events) ===")
-    generate_dataset_for_month("Jul95", train_path, inject_events=True)
+    print("=== Generating Train/Val dataset (Calgary 8-Dimensional) ===")
+    generate_calgary_dataset(train_path)
     
-    print("=== Generating Test dataset (August 1995, 100% real NASA traffic) ===")
-    generate_dataset_for_month("Aug95", test_path, inject_events=False)
+    print("=== Generating Test dataset (NASA 8-Dimensional) ===")
+    generate_nasa_test_dataset(test_path)

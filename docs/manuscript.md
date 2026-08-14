@@ -154,3 +154,7 @@ Nghiên cứu đã xây dựng thành công pipeline cảnh báo sớm nghẽn h
 [10] T. Nguyen et al., "DeepScaler: Spatiotemporal GNN for Proactive Cloud Scaling," *Proc. IEEE ICDCS*, 2022.  
 [11] J. Park et al., "GRAF: A GNN-based Resource Allocation Framework," *IEEE/ACM ToN*, 2023.  
 [12] S. Wang et al., "Graph-PHPA: Combining LSTM and GNN," *IEEE Access*, 2022.  
+[13] "Prediction Study Based on TCN-BiLSTM-SA Time Series Model," *Atlantis Press*, 2023. [Online]. Available: https://doi.org/10.2991/978-94-6463-266-8_21
+[14] "Oil Logging Reservoir Recognition Based on TCN and SA-BiLSTM Deep Learning Method," *Engineering Applications of Artificial Intelligence*, 2023. [Online]. Available: https://doi.org/10.1016/j.engappai.2023.105950
+[15] "Battery state-of-health prediction based on feature extraction and a VMD–TCN–BiLSTM–self-attention model," *Journal of Energy Storage*, 2026. [Online]. Available: https://doi.org/10.1016/j.est.2026.121629
+[16] "Photovoltaic Power Forecasting: Parallel TCN-BiLSTM + Temporal-Spatial Attention," *Energy Engineering*, 2026. [Online]. Available: https://www.techscience.com/energy/online/detail/25098

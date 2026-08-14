@@ -1,0 +1,15 @@
+{
+    "dataset": "Azure VM Traces 2017",
+    "rows": 19181,
+    "min_elapsed_minute": 0,
+    "max_elapsed_minute": 19180,
+    "total_duration_minutes": 19181,
+    "total_missing_minutes": 0,
+    "missing_rate_pct": 0.0,
+    "gap_count": 0,
+    "max_gap_size": 0,
+    "invalid_range_count": 0,
+    "cpu_min": 6.98,
+    "cpu_max": 12.4,
+    "cpu_mean": 8.41
+}

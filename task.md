@@ -1,17 +1,12 @@
-- `[x]` Data Preparation
-  - `[x]` Download August 1995 logs
-  - `[x]` Refactor `src/data/make_dataset.py` to generate separated Train (July) and Test (August) CSVs
-  - `[x]` Refactor `src/features/build_features.py` to handle separate Train/Val and Test split, fitting scaler only on Train
-  - `[x]` Generate dataset files and build processed tensors
-- `[x]` Re-huấn luyện (Purge & Retrain)
-  - `[x]` Delete old weight checkpoints and statistics files in `models/`
-  - `[x]` Rerun training for all 6 models (`tcn_dualatt_bilstm`, `bilstm_attention`, `sg_tcn_lstm`, `standard_lstm`, `itransformer`, `dlinear`) for 120 epochs
-- `[x]` Evaluation & Figures Update
-  - `[x]` Run `evaluate_pipeline.py` with CPU>15%, Latency>48ms thresholds
-  - `[x]` Run `profile_model.py` for VRAM and latency profiling
-  - `[x]` Run `generate_paper_plots.py` to regenerate all PNGs
-- `[x]` Document Synchronizing
-  - `[x]` Update `paper_en.md` with new metrics
-  - `[x]` Update `manuscript.md` with new metrics
-  - `[x]` Update `README.md`
-  - `[x]` Commit and push to `main` branch
+- `[/]` Download large datasets
+  - `[/]` Google Cluster Data (10.08 GB) - *Downloading, ~1.2 GB downloaded*
+  - `[ ]` Microsoft Azure VM Traces (10.10 GB)
+  - `[ ]` Amazon Reviews Data (18.73 GB)
+  - `[ ]` Alibaba Cluster Data (27.20 GB)
+- `[ ]` Preprocessing & Feature Extraction
+  - `[ ]` Build time-series parser scripts for Google/Azure/Amazon/Alibaba
+  - `[ ]` Generate unified metric tables and tensors for cross-site training
+- `[ ]` Retrain & Evaluate Models
+  - `[ ]` Train all 6 models sequentially
+  - `[ ]` Update IEEE/ACM research paper figures and metrics
+  - `[ ]` Sync documentation and push to main branch

@@ -4,10 +4,9 @@ __pycache__/
 *$py.class
 
 # Data files (Quá lớn để push lên GitHub)
-data/raw/*.csv
-data/raw/*.gz
-data/processed/*.npz
-data/processed/*.pkl
+data/raw/
+data/processed/
+!data/reports/
 
 # Environment
 .env
@@ -35,5 +34,9 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Model checkpoints from individual runs
-models/*_run*.pth
+# Temp / Scratch files
+t*.txt
+
+# Large Model checkpoints
+models/lab/
+models/*.pth
